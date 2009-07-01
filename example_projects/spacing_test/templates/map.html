@@ -1,0 +1,73 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> 
+<html> 
+<head> 
+  <title>GEarthExtensions Samples - point in poly</title> 
+  <script src="http://www.google.com/jsapi?key=ABQIAAAAN_hNyUfH5mpudZW1pUE8mxTpH3CbXHjuCVmaTc5MkkU4wO1RRhQGecM4mPlhtIkKtuad6DDhuHPY_Q" type="text/javascript"></script> 
+  <script src="http://earth-api-utility-library.googlecode.com/svn/tags/extensions-0.1.2/dist/extensions.pack.js"> </script> 
+<script type="text/javascript"> 
+/* <![CDATA[ */
+ 
+var ge = null;
+var gex = null;
+var placemark = null;
+ 
+google.load('earth', '1');
+ 
+google.setOnLoadCallback(function() {
+  google.earth.createInstance('map3d', function(pluginInstance) {
+    ge = pluginInstance;
+    ge.getWindow().setVisibility(true);
+    
+    gex = new GEarthExtensions(pluginInstance);
+    var cnt = 0;
+    google.earth.addEventListener(ge.getGlobe(), 'click', function(evt) {
+	  cnt ++;
+	  if (cnt == 3) {
+		gex.dom.clearFeatures();
+		cnt = 1;
+	  }
+	  var clickPoint = ge.createPoint('');
+	  clickPoint.setLatitude(evt.getLatitude());
+	  clickPoint.setLongitude(evt.getLongitude());
+	  var point_name = "point " + cnt.toString();
+      gex.dom.addPointPlacemark(clickPoint, { name: point_name });
+    });
+	
+	
+	// NetworkLink
+	var networkLink = ge.createNetworkLink('');
+	networkLink.setDescription('NetworkLink open to fetched content');
+	networkLink.setName('Open NetworkLink');
+	networkLink.setFlyToView(true);
+
+	// NetworkLink/Link
+	var link = ge.createLink('');
+	link.setHref('http://127.0.0.1:8000/land/kml');
+	networkLink.setLink(link);
+
+	// add the network link to earth
+	ge.getFeatures().appendChild(networkLink);
+	/*
+    var la = ge.createLookAt('');
+	  la.set(34.25, -120,
+		70000, // altitude
+		ge.ALTITUDE_RELATIVE_TO_GROUND,
+		0, // heading
+		0, // straight-down tilt
+		5000 // range (inverse of zoom)
+		);
+	  ge.getView().setAbstractView(la);
+	 */
+	  }, function() {});
+	});
+
+/* ]]> */
+</script> 
+</head> 
+<body> 
+  <div id="map3d_container" style="width: 700px; height: 700px;"> 
+    <div id="map3d" style="height: 100%"></div> 
+  </div> 
+</body> 
+</html>

@@ -1,0 +1,4 @@
+<Placemark>
+	<name>{{land.name}}</name>
+	{{land.geometry_kml|safe}}
+</Placemark>
