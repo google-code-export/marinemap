@@ -76,7 +76,13 @@ class TestPoint(models.Model):
             line = geos.LineString( nx.dijkstra_path(G,get_node_from_point(G,self.geometry),get_node_from_point(G,point.geometry)) )
             distance = D(m=line.length).mi
             return distance, line
-        
+
+def fish_distance(point1,point2):
+    tp1 = TestPoint(name='tp1', geometry=point1)
+    tp2 = TestPoint(name='tp2', geometry=point2)
+    distance, line = tp1.fish_distance_to(tp2)
+    return distance, line
+
 def add_test_points(points):
     cnt = 0
     for p in points:

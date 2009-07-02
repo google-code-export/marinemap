@@ -9,6 +9,8 @@ urlpatterns = patterns('',
     # Example:
     (r'^$', Index),
     (r'^land/kml/', LandKML),
+    (r'^fish_distance/kml', FishDistanceKML),
+    (r'^site_media/(?P<path>.*)$', 'django.views.static.serve', {'document_root': 'C:/pydevWorkspace/reporting_dev/media', 'show_indexes': False}),
     (r'^tests/', 'django.views.generic.simple.direct_to_template', {'template': 'common/tests.html'}),
     (r'^layers/', include('lingcod.layers.urls')),
 
