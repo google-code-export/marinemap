@@ -1,6 +1,8 @@
 from django.contrib.gis.db import models
 from django.contrib.gis import geos
 from django.contrib.gis.measure import *
+from django.db import connection
+from exceptions import AttributeError
 import os
 import pickle
 import networkx as nx
@@ -8,8 +10,33 @@ import networkx as nx
 FILE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'data', 'pickled_graph'))
 # Create your models here.
 
+def kml_doc_from_queryset(qs):
+    dict = {}
+    placemarks = []
+    for item in qs:
+        placemarks.append( kml_placemark(item) )
+    dict['placemarks'] = placemarks
+    from django.template import Context, Template
+    from django.template.loader import get_template
+    t = get_template('general.kml')
+    response = t.render(Context({ 'kml': dict }))
+    return response
+
+def kml_placemark(qs_item, styleUrl='#default', geo_field='geometry'):
+    geom = qs_item.__getattribute__(geo_field)
+    geom.transform(4326)
+    try:
+        name = qs_item.name
+    except AttributeError:
+        name = qs_item.model.__name__
+    name = '<Name>%s</Name>' % name
+    
+    style = '<styleUrl>%s</styleUrl>' % styleUrl
+    return_kml = '<Placemark>%s%s%s</Placemark>' % (name,style,geom.kml)
+    return return_kml
+    
 class Land(models.Model): #may want to simplify geometry before storing in this table
-    name = models.TextField()
+    name = models.TextField(null=True, blank=True)
     geometry = models.PolygonField(srid=3310,null=True, blank=True)
     objects = models.GeoManager()
     
@@ -43,6 +70,12 @@ class Land(models.Model): #may want to simplify geometry before storing in this 
         t = get_template('land.kml')
         response = t.render(Context({ 'land': self }))
         return response
+    
+    def simplify(self, tolerance=500):
+        self.geometry = self.geometry.simplify(tolerance=tolerance, preserve_topology=True)
+        self.geometry = geos.Polygon(self.geometry.exterior_ring)
+        self.save()
+        
 
 class OceanPath(models.Model):
     points = models.ManyToManyField('TestPoint', null=True, blank=True)
@@ -111,21 +144,23 @@ def setup_tests():
     land_line = geos.LineString(p1.geometry, p3.geometry)
     G = nx.Graph()
     
-def add_land_hulls(graph, hull_only=False):
+def add_land_to_graph(graph, hull_only=False, verbose=False):
+    if verbose:
+        print 'Adding land nodes to graph'
     for l in Land.objects.iterator():
         if hull_only:
             graph = l.add_hull_nodes_to_graph(graph)
         else:
             graph = l.add_nodes_to_graph(graph)
     
-    graph = add_ocean_edges_complete(graph)
+    graph = add_ocean_edges_complete(graph,verbose=verbose)
     return graph
 
-def create_pickled_graph(file=FILE_PATH):
+def create_pickled_graph(file=FILE_PATH,verbose=False):
     # create a pickled graph with all nodes from Land and all edges that do not cross Land
     f = open(file, 'w')
     graph = nx.Graph()
-    graph = add_land_hulls(graph)
+    graph = add_land_to_graph(graph,verbose=verbose)
     pickle.dump(graph, f)
     f.close()
     return graph
@@ -150,11 +185,35 @@ def add_ocean_edges_for_node(graph, node):
             graph.add_edge(node,n,D(m=node.distance(n)).mi)
     return graph
 
-def add_ocean_edges_complete(graph):
+def add_ocean_edges_complete(graph, verbose=False):
+    if verbose:
+        cnt = 1
+        import time
+        t0 = time.time()
+        print "Starting at %s to add edges for %i nodes." % (time.asctime(time.localtime(t0)), graph.number_of_nodes() )
+        edge_possibilities = graph.number_of_nodes() * (graph.number_of_nodes() -1)
+        print "We'll have to look at somewhere around %i edge possibilities." % ( edge_possibilities )
+        print "Node: ",
     for node in graph.nodes_iter():
+        if verbose:
+            print str(cnt) + ' ',
+            cnt += 1
         for n in graph.nodes_iter():
             if node <> n:
                 line = geos.LineString(node,n)
                 if not line_crosses_land(line):
                     graph.add_edge(node,n,D(m=node.distance(n)).mi)
+    if verbose:
+        print "It took %i minutes to load %i edges." % ((time.time() - t0)/60, graph.number_of_edges() )
     return graph
+
+def clean_geometry(qs_item):
+    cursor = connection.cursor()
+    query = "update %s set geometry = cleangeometry(geometry) where %s = %i" % (qs_item._meta.db_table, qs_item._meta.pk.attname, qs_item.pk)
+    cursor.execute(query)
+    connection._commit()
+
+def clean_query_set_geometries(qs):
+    for qs_item in qs:
+        if not qs_item.geometry.valid:
+            clean_geometry(qs_item)
