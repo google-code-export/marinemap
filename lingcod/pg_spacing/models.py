@@ -50,7 +50,46 @@ def add_geometry_to_network(qs):
                 if not line_crosses_land(line,qs):
                     nw = Network(geometry=line)
                     nw.save()
-                
+    assign_vertex_ids()
+
+def add_point_to_network(point, qs=Land.objects.all() ):
+    qs_coords = ()
+    for item in qs:
+        qs_coords += item.geometry.exterior_ring.coords
+    qs_points = [geos.Point(p) for p in qs_coords]
+    for qs_pnt in qs_points:
+        line = geos.MultiLineString( geos.LineString(point,qs_pnt) )
+        if not line_crosses_land(line,qs):
+            nw = Network(geometry=line)
+            nw.save()
+            nw_id = nw.pk
+    assign_vertex_ids()
+    return Network.objects.get(pk=nw_id).source
+    
+def fish_distance(source,target):
+    try:
+        source_id = Vertices.objects.get(the_geom__equals=source).pk
+    except Vertices.DoesNotExist:
+        add_point_to_network(source)
+        source_id = Vertices.objects.get(the_geom__equals=source).pk
+    
+    try:
+        target_id = Vertices.objects.get(the_geom__equals=target).pk
+    except Vertices.DoesNotExist:
+        add_point_to_network(target)
+        target_id = Vertices.objects.get(the_geom__equals=target).pk
+        
+    query = """
+        DROP TABLE IF EXISTS dijsktra_result;
+        CREATE TABLE dijsktra_result(gid int4) with oids;
+        SELECT AddGeometryColumn('dijsktra_result', 'the_geom', '3310', 'MULTILINESTRING', 2);
+        INSERT INTO dijsktra_result(the_geom)
+            SELECT the_geom FROM dijkstra_sp('pg_routing_network', %i, %i);
+        """ % (source_id,target_id)
+    cursor = connection.cursor()
+    cursor.execute(query)
+    cursor.db._commit()
+        
 def line_crosses_land(line,qs):
     crosses = False
     for l in qs:
@@ -68,12 +107,22 @@ class Network(models.Model):
     def save(self):
         self.length = self.geometry.length
         super(Network,self).save()
-        
+
+class Vertices(models.Model):
+    the_geom = models.PointField(srid=3310)
+    objects = models.GeoManager()
+    
+    class Meta:
+        db_table = 'vertices_tmp'
+        managed = False
+
 def assign_vertex_ids(model=Network, tolerance=0.01, geometry_field='geometry', id_field='id'):
     db_table = model._meta.db_table
     cursor = connection.cursor()
     query_str = "SELECT assign_vertex_id('%s', %f, '%s', '%s')" % (db_table,tolerance,geometry_field,id_field)
     cursor.execute(query_str)
-    cursor.db._commit()
     row = cursor.fetchone()
+    query_str = "ALTER TABLE vertices_tmp ADD CONSTRAINT pkey PRIMARY KEY (%s)" % id_field
+    cursor.execute(query_str) # I'm just adding the pkey so the vertices show up properly in QGIS
+    cursor.db._commit()
     return row
