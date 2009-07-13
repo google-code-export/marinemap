@@ -1,0 +1,230 @@
+{% extends "common/base.html" %}
+
+{% block head %}
+    <script type="text/javascript" charset="utf-8">
+        google.load("earth", "1");
+        google.load('maps', '3', {"other_params":"sensor=false"});
+        var ge = null;
+        var gex;
+        var geocoder;
+    
+        function init() {
+            google.earth.createInstance("map", initCallback, failureCallback);
+            geocoder = new google.maps.Geocoder();
+        }
+
+        function initCallback(pluginInstance) {
+            ge = pluginInstance;
+            gex = new GEarthExtensions(ge);
+            ge.getLayerRoot().enableLayerById(ge.LAYER_BUILDINGS_LOW_RESOLUTION, true);
+            ge.getLayerRoot().enableLayerById(ge.LAYER_BUILDINGS, true);
+        
+            ge.getWindow().setVisibility(true); // required!
+            // add_base_kml('http://localhost:8000{{MEDIA_URL}}common/kml/shadow.kmz');
+            add_base_kml('http://mm-01.msi.ucsb.edu:8000{{MEDIA_URL}}fixtures/example_study_region_view.kml', true);
+            gex.util.displayKml("http://marinemap.org/kml_test/cburt/SubstrateProjectedClamped/doc.kml");
+            updateOptions();
+            updateGELayers();
+            // add_base_kml("http://marinemap.org/kml_test/cburt/SubstrateProjected-ok/doc.kml")
+        }
+
+        function failureCallback(errorCode) {
+            alert("Failure loading the Google Earth Plugin: " + errorCode);
+        }
+    
+        function add_base_kml(url, flyto){
+            var flyto = flyto || false
+            // NetworkLink
+            var networkLink = ge.createNetworkLink('');
+            networkLink.setDescription('NetworkLink open to fetched content');
+            networkLink.setName('Open NetworkLink');
+            networkLink.setFlyToView(true);
+
+            // NetworkLink/Link
+            var link = ge.createLink('');
+            link.setHref(url);
+            networkLink.setLink(link);
+
+            // add the network link to earth
+            ge.getFeatures().appendChild(networkLink);
+        }
+    
+        $(window).resize(function(){
+            onResize(380);
+        });
+    
+        $(document).ready(function(){
+            $('.sidebar-panel').panel({hidden: false, width:380, toptabs: true});
+            onResize();
+            init();
+            $('#back-button a').click(function(){
+                togglePanel('home');
+            });
+            $('#panelManager').panelManager({top: '1em', left: 0});
+        });
+    
+        function updateGELayers(){
+            var form = document.ge_layers;
+            $(form).find('input').each(function(){
+                ge.getLayerRoot().enableLayerById(ge[$(this).attr('name')], $(this).attr('checked'));
+            });
+        }
+    
+        function updateOptions() {
+            var options = ge.getOptions();
+            var form = document.options;
+
+            options.setStatusBarVisibility(form.statusbar.checked);
+            options.setGridVisibility(form.grid.checked);
+            options.setOverviewMapVisibility(form.overview.checked);
+            options.setScaleLegendVisibility(form.scaleLegend.checked);
+            options.setAtmosphereVisibility(form.atmosphere.checked);
+
+            ge.getSun().setVisibility(form.sun.checked);
+
+            if (form.nav.checked) {
+                ge.getNavigationControl().setVisibility(ge.VISIBILITY_SHOW);
+            } else {
+                ge.getNavigationControl().setVisibility(ge.VISIBILITY_HIDE);
+            }
+        }
+    
+        var toggled = false;
+        function togglePanel(id){
+            if(toggled){
+                showPanel(id);
+            }else{
+                hidePanel(id);
+            }
+            toggled = !toggled;
+        }
+    
+        function onResize(){
+            var size = [$(window).width(), $(window).height()]
+            var top_height = $('#meta-navigation').height();
+            var body_height = size[1] - top_height - 7;
+            // console.log('top_height', top_height);
+            // console.log(size);
+            var map_width = size[0] - $('.sidebar-panel').panel('width') - 20;
+            // console.log(body_height, map_width);
+            $('#map_container').height(body_height - 10);
+            $('.sidebar-panel').panel('resize', {height: body_height - 10});
+            // $('div.sidebar-panel').height(body_height - 10);
+            $('#map_container').width(map_width - 10);
+        }
+        
+        // function flyTo(location_string, ge){}
+        
+        function flyTo(){
+            var location = $('input[name="flyto_location"]').attr('value');
+            geocoder.geocode({ address: location, country: '.us'}, function(results, status){
+                    // gex.dom.clearFeatures();
+                    if(status == google.maps.GeocoderStatus.OK && results.length){
+                        if(status != google.maps.GeocoderStatus.ZERO_RESULTS){
+                            var point = results[0].geometry.location;
+                            var lookAt = ge.getView().copyAsLookAt(ge.ALTITUDE_RELATIVE_TO_GROUND);
+                            lookAt.setLatitude(point.lat());
+                            lookAt.setLongitude(point.lng());
+                            ge.getView().setAbstractView(lookAt);
+                            var p = gex.dom.addPointPlacemark([point.lat(), point.lng()], {
+                              // stockIcon: 'pal3/icon60.png',
+                              name: location,
+                            });
+                            console.log(p);
+                        }else{
+                            alert("geocoder didn't find any results.");
+                        }
+                    }else{
+                        alert("Geocoder failed due to: " + status);
+                    }
+            });
+        }
+    </script>
+    <style type="text/css" media="screen">
+    </style>    
+{% endblock %}
+
+{% load tabpanel tab footer %}
+
+{% block content %}
+    <div id="meta-navigation">
+        <ul>
+            <li><a href="logout">cburt</a> | </li>
+            <li><a href="http://marinemap.org">about marinemap</a> | </li>
+            <li><a href="help">help</a> | </li>
+            <li><a href="sign out">sign out</a></li>
+        </ul>
+        <br />
+    </div>
+    <div id="panelManager" class="panel-manager">
+        {% tabpanel "Home" %}
+            {% tab "Data Layers" %}
+                <p>
+                    <img src="{{MEDIA_URL}}fixtures/datalayers.png" width="297" height="434" />
+                </p>
+                {% footer %}
+                    <div class="sidebar-footer tools">
+                        <h3>Earth Options</h3>
+                        <ul>
+                        <form name="options" action='javascript:updateOptions();'>
+                            <li><input type="checkbox" onclick='updateOptions()' name="statusbar" checked />Status Bar</li>
+                          <li><input type="checkbox" onclick='updateOptions()' name="nav" />Navigation Control</li>
+                          <li><input type="checkbox" onclick='updateOptions()' name="grid" />Grid</li>
+                          <li><input type="checkbox" onclick='updateOptions()' name="overview" />Overview Map</li>
+                          <li><input type="checkbox" onclick='updateOptions()' name="scaleLegend" />Scale Legend</li>
+                          <li><input type="checkbox" onclick='updateOptions()' name="atmosphere" checked />Atmosphere</li>
+                          <li><input type="checkbox" onclick='updateOptions()' name="sun" />Sun</li>      
+                        </form>
+                        </ul>
+                        <h3>Google Layers</h3>
+                        <ul>
+                        <form name="ge_layers" action="javascript:updateGELayers();">
+                                <li><input type="checkbox" onclick="updateGELayers()" name="LAYER_BORDERS" checked>Borders</li>
+                                <li><input type="checkbox" onclick="updateGELayers()" name="LAYER_ROADS">Roads</li>
+                                <li><input type="checkbox" onclick="updateGELayers()" name="LAYER_TERRAIN">Terrain</li>
+                                <li><input type="checkbox" onclick="updateGELayers()" name="LAYER_BUILDINGS">3d Buildings</li>
+                                <li><input type="checkbox" onclick="updateGELayers()" name="LAYER_BUILDINGS_LOW_RESOLUTION">Low Resolution Buildings</li>                                
+                        </form>
+                        </ul>
+                        <h3>Find a place</h3>
+                        <form action="javascript:flyTo();" method="GET">
+                            <ul>
+                                <li>
+                                    <input type="text" name="flyto_location" value="">
+                                    <input type="submit" value="Fly here">                                    
+                                </li>
+                            </ul>
+                        </form>
+                    </div>                    
+                {% endfooter %}
+            {% endtab %}
+            {% tab "My Shapes" %}
+                <p>
+                    <img style="margin:0px;padding:0px;" src="{{MEDIA_URL}}fixtures/arrays.png" width="355" height="444" />
+                    <a href="javascript:alert('create mpa');">create mpa</a> |
+                    <a href="javascript:alert('create array');">create array</a>
+                </p>
+            {% endtab %}
+            {% tab "Collaborate" %}
+                <p>
+                    <img style="margin:0px;padding:0px;" src="{{MEDIA_URL}}fixtures/wave.png" width="372" height="483" />
+                </p>
+            {% endtab %}
+            {% tab "Tools" %}
+                    <ul>
+                        <li><a href="#">measure area</a></li>
+                        <li><a href="#">measure length</a></li>
+                    </ul>
+                    <ul>
+                        <li><a href="{% url panel_test %}" class="link forward" title="Test Panel">panel test</a></li>
+                        <li><a href="{% url tab_panel_test %}" class="link forward" title="Test Tab Panel">tabpanel test</a></li>
+                    </ul>
+   
+            {% endtab %}
+        {% endtabpanel %}        
+    </div>
+   
+    <div id="map_container">
+        <div id="map"></div>
+    </div>
+{% endblock %}
