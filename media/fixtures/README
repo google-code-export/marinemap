@@ -1,0 +1,4 @@
+This folder is for all files that may not be relavent to actual marinemap
+releases, but are useful for testing and planning. For example there could be
+a kml file that represents the study region used for UI testing, but 
+eventually such information would be created by a webservice.

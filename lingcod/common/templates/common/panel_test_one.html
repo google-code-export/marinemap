@@ -1,0 +1,18 @@
+{% extends 'common/panel.html' %}
+{% load footer panel printable back_link %}
+
+{% block panel %}
+
+    {% printable %}
+    {% home_link %}
+
+    {% panel "My Title" %}
+        <p>Panel text content</p>
+        {% footer %}
+            <h3>I am so cool</h3>
+            <p>
+                Blah blah footer...
+            </p>
+        {% endfooter %}
+    {% endpanel %}        
+{% endblock %}
