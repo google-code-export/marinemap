@@ -1,14 +1,34 @@
 from django.contrib.gis.db import models
 from django.contrib.gis.gdal import *
+from django.contrib.gis import geos
+from django.contrib.gis.measure import *
 from django.template.defaultfilters import slugify
 from osgeo import ogr
 #from django.contrib.gis.utils import LayerMapping
 import os
 
 DATA_PATH = 'C:/pydevWorkspace/reporting_dev/lingcod/intersection/data/' #os.path.join(os.path.dirname(__file__), 'data')
+LINEAR_OUT_UNITS = 'miles'
+AREAL_OUT_UNITS = 'sq miles'
+POINT_OUT_UNITS = 'count'
+
+def load_distinct_valued_features(file_name, field_name):
+    shpfile = os.path.abspath(os.path.join(DATA_PATH, file_name))
+    ds = DataSource(shpfile)
+    lyr = ds[0]
+    if field_name not in lyr.fields:
+        raise 'Specified field (%s) not found in %s' % (field_name,file_name)
+    field = lyr.get_fields(field_name)
+    distinct_values = dict.fromkeys(field).keys()
+    
+    for dv in distinct_values:
+        new_file_name = shapefile_from_field_value(file_name, field_name, dv)
+        load_features(new_file_name, dv)
 
 def load_features(file_name, feature_name, verbose=True):
-    ## TO DO: fill out intersection_feature attributes when updating that record
+    ## This method loads individual features (with polygon, linestring, or point geometry) into
+    # the appropriate model and loads relevant data and corresponding multi-geometry into the 
+    # IntersectionFeature model
     
     shpfile = os.path.abspath(os.path.join(DATA_PATH, file_name))
     #shpfile = os.path.abspath(os.path.join(os.path.dirname(__file__), 'data', file_name))
@@ -28,15 +48,29 @@ def load_features(file_name, feature_name, verbose=True):
     lyr = ds[0]
     if lyr.geom_type=='LineString':
         feature_model = LinearFeature
+        out_units = LINEAR_OUT_UNITS
+        mgeom = geos.fromstr('MULTILINESTRING EMPTY')
     elif lyr.geom_type=='Polygon':
         feature_model = ArealFeature
+        out_units = AREAL_OUT_UNITS
+        intersection_feature.native_units = 'Sq ' + intersection_feature.native_units
+        mgeom = geos.fromstr('MULTIPOLYGON EMPTY')
     elif lyr.geom_type=='Point':
         feature_model = PointFeature
+        out_units = POINT_OUT_UNITS
+        mgeom = geos.fromstr('MULTILIPOINT EMPTY')
     else:
         raise 'Unrecognized type for load_features.'
     
     # get rid of old stuff if it's there
     feature_model.objects.filter(feature_type=intersection_feature).delete()
+    
+    if verbose:
+        print 'Loading %s from %s' % (feature_name,file_name)
+    
+    area = 0.0
+    length = 0.0
+    count = 0
     
     for feat in lyr:
         if feat.geom.__class__.__name__.startswith('Multi'):
@@ -45,6 +79,13 @@ def load_features(file_name, feature_name, verbose=True):
             for f in feat.geom: #get the individual geometries
                 fm = feature_model(name=feature_name,feature_type=intersection_feature)
                 fm.geometry = f.geos
+                mgeom.append(fm.geometry)
+                if out_units==AREAL_OUT_UNITS:
+                    area += fm.geometry.area
+                elif out_units==LINEAR_OUT_UNITS:
+                    length += fm.geometry.length
+                else:
+                    count += 1
                 fm.save()
                 if verbose:
                     print '-',
@@ -53,11 +94,33 @@ def load_features(file_name, feature_name, verbose=True):
         else:
             fm = feature_model(name=feature_name,feature_type=intersection_feature)
             fm.geometry = feat.geom.geos
+            mgeom.append(fm.geometry)
+            if out_units==AREAL_OUT_UNITS:
+                area += fm.geometry.area
+            elif out_units==LINEAR_OUT_UNITS:
+                length += fm.geometry.length
+            else:
+                count += 1
             fm.save()
             if verbose:
                 print '.',
     
-    ds.Destroy()
+    #print mgeom.area
+    
+    if out_units==AREAL_OUT_UNITS:
+        intersection_feature.study_region_total = A(sq_m=area).sq_mi
+        intersection_feature.geometry_poly = mgeom
+    elif out_units==LINEAR_OUT_UNITS:
+        intersection_feature.study_region_total = D(m=length).mi
+        intersection_feature.geometry_line = mgeom
+    else:
+        intersection_feature.study_region_total = count
+        intersection_feature.geometry_point = mgeom
+    intersection_feature.output_units = out_units
+    intersection_feature.shapefile_name = file_name
+    intersection_feature.feature_model = feature_model.__name__
+    intersection_feature.save()
+    
                 
 def shapefile_from_field_value(file_name, field_name, field_value):
     driver = ogr.GetDriverByName('ESRI Shapefile')
@@ -76,12 +139,12 @@ def shapefile_from_field_value(file_name, field_name, field_value):
     # create a new data source and layer
     fn = slugify(field_value) + '.shp'
     fn = str(os.path.abspath(os.path.join(DATA_PATH, fn)))
-    print fn
+    
     if os.path.exists(fn):
       driver.DeleteDataSource(fn)
     ds_out = driver.CreateDataSource(fn)
     if ds_out is None:
-      raise 'Could not create file'
+      raise 'Could not create file: %s' % fn
     
     if gname.lower().endswith('polygon'):
         geometry_type = ogr.wkbMultiPolygon
@@ -129,9 +192,9 @@ def shapefile_from_field_value(file_name, field_name, field_value):
     
     # get the projection from the input shapefile and write a .prj file for the output
     spatial_ref = lyr_in.GetSpatialRef()
-    fn = slugify(field_value) + '.prj'
-    fn = str(os.path.abspath(os.path.join(DATA_PATH, fn)))
-    file = open(fn,'w')
+    fn_prj = slugify(field_value) + '.prj'
+    fn_prj = str(os.path.abspath(os.path.join(DATA_PATH, fn_prj)))
+    file = open(fn_prj,'w')
     spatial_ref.MorphToESRI()
     file.write(spatial_ref.ExportToWkt())
     file.close()
@@ -139,11 +202,11 @@ def shapefile_from_field_value(file_name, field_name, field_value):
     ds_in.Destroy()
     ds_out.Destroy()
     
+    return os.path.basename(fn)
 
-def prep_layer_mapping(shpfile_name, model, mapping):
-    shpfile = os.path.abspath(os.path.join(os.path.dirname(__file__), 'data', shpfile_name))
-    lm = LayerMapping(model, shpfile, mapping, transform=False, encoding='iso-8859-1')
-    return lm
+class TestPolygon(models.Model):
+    geometry = models.PolygonField(srid=3310)
+    objects = models.GeoManager()
 
 class IntersectionFeature(models.Model):
     name = models.CharField(max_length=255, unique=True)
@@ -159,20 +222,23 @@ class IntersectionFeature(models.Model):
                     ('LinearFeature', 'Linear'),
                     ('PointFeature', 'Point'),
                    )
-    feature_model = models.CharField(null=True, blank=True, max_length=10, choices=TYPE_CHOICES)
-    geometry_line = models.MultiLineStringField(null=True, blank=True, srid=3310)
-    geometry_poly = models.MultiPolygonField(null=True, blank=True, srid=3310)
-    geometry_point = models.MultiPointField(null=True, blank=True, srid=3310)
+    feature_model = models.CharField(null=True, blank=True, max_length=20, choices=TYPE_CHOICES)
+#    geometry_line = models.MultiLineStringField(null=True, blank=True, srid=3310)
+#    geometry_poly = models.MultiPolygonField(null=True, blank=True, srid=3310)
+#    geometry_point = models.MultiPointField(null=True, blank=True, srid=3310)
     objects = models.GeoManager()
    
     def __unicode__(self):
         return self.name
     
+    def all(self):
+        return super(IntersectionFeature,self).all().defer('geometry_poly','geometry_line','geometry_point')
+    
 class CommonFeatureInfo(models.Model):
     name = models.CharField(max_length=255)
     feature_type = models.ForeignKey(IntersectionFeature)
     date_created = models.DateTimeField(auto_now_add=True)
-    date_modified = models.DateTimeField(auto_now=True) # updating this is taken care of by a trigger defined in lingcod/intersection/sql. manage.py creates the trigger.  This will let us modify features in qgis if we need to and still know when features were updated.  heeeelll yeah.
+    date_modified = models.DateTimeField(auto_now=True) # updating also handled by a trigger defined in lingcod/intersection/sql. manage.py creates the trigger.  This will let us modify features in qgis if we need to and still know when features were updated.
     objects = models.GeoManager()
     
     class Meta:
@@ -182,10 +248,19 @@ class ArealFeature(CommonFeatureInfo):
     geometry = models.PolygonField(srid=3310)
     objects = models.GeoManager()
     
+    def intersection(self,geom):
+        return self.geometry.intersection(geom)
+    
 class LinearFeature(CommonFeatureInfo):
     geometry = models.LineStringField(srid=3310)
     objects = models.GeoManager()
     
+    def intersection(self,geom):
+        return self.geometry.intersection(geom)
+    
 class PointFeature(CommonFeatureInfo):
     geometry = models.PointField(srid=3310)
     objects = models.GeoManager()
+    
+def intersect_the_features(geom, feature_list=[i.pk for i in IntersectionFeature.objects.all()]):
+    print feature_list
