@@ -7,7 +7,7 @@ from osgeo import ogr
 #from django.contrib.gis.utils import LayerMapping
 import os
 
-DATA_PATH = 'C:/pydevWorkspace/reporting_dev/lingcod/intersection/data/' #os.path.join(os.path.dirname(__file__), 'data')
+DATA_PATH = os.path.join(os.path.dirname(__file__), 'data') #'C:/pydevWorkspace/reporting_dev/lingcod/intersection/data/' #
 LINEAR_OUT_UNITS = 'miles'
 AREAL_OUT_UNITS = 'sq miles'
 POINT_OUT_UNITS = 'count'
@@ -49,16 +49,16 @@ def load_features(file_name, feature_name, verbose=True):
     if lyr.geom_type=='LineString':
         feature_model = LinearFeature
         out_units = LINEAR_OUT_UNITS
-        mgeom = geos.fromstr('MULTILINESTRING EMPTY')
+        #mgeom = geos.fromstr('MULTILINESTRING EMPTY')
     elif lyr.geom_type=='Polygon':
         feature_model = ArealFeature
         out_units = AREAL_OUT_UNITS
         intersection_feature.native_units = 'Sq ' + intersection_feature.native_units
-        mgeom = geos.fromstr('MULTIPOLYGON EMPTY')
+        #mgeom = geos.fromstr('MULTIPOLYGON EMPTY')
     elif lyr.geom_type=='Point':
         feature_model = PointFeature
         out_units = POINT_OUT_UNITS
-        mgeom = geos.fromstr('MULTILIPOINT EMPTY')
+        #mgeom = geos.fromstr('MULTILIPOINT EMPTY')
     else:
         raise 'Unrecognized type for load_features.'
     
@@ -79,7 +79,7 @@ def load_features(file_name, feature_name, verbose=True):
             for f in feat.geom: #get the individual geometries
                 fm = feature_model(name=feature_name,feature_type=intersection_feature)
                 fm.geometry = f.geos
-                mgeom.append(fm.geometry)
+                #mgeom.append(fm.geometry)
                 if out_units==AREAL_OUT_UNITS:
                     area += fm.geometry.area
                 elif out_units==LINEAR_OUT_UNITS:
@@ -94,7 +94,7 @@ def load_features(file_name, feature_name, verbose=True):
         else:
             fm = feature_model(name=feature_name,feature_type=intersection_feature)
             fm.geometry = feat.geom.geos
-            mgeom.append(fm.geometry)
+            #mgeom.append(fm.geometry)
             if out_units==AREAL_OUT_UNITS:
                 area += fm.geometry.area
             elif out_units==LINEAR_OUT_UNITS:
@@ -105,17 +105,13 @@ def load_features(file_name, feature_name, verbose=True):
             if verbose:
                 print '.',
     
-    #print mgeom.area
     
     if out_units==AREAL_OUT_UNITS:
         intersection_feature.study_region_total = A(sq_m=area).sq_mi
-        intersection_feature.geometry_poly = mgeom
     elif out_units==LINEAR_OUT_UNITS:
         intersection_feature.study_region_total = D(m=length).mi
-        intersection_feature.geometry_line = mgeom
     else:
         intersection_feature.study_region_total = count
-        intersection_feature.geometry_point = mgeom
     intersection_feature.output_units = out_units
     intersection_feature.shapefile_name = file_name
     intersection_feature.feature_model = feature_model.__name__
@@ -231,8 +227,37 @@ class IntersectionFeature(models.Model):
     def __unicode__(self):
         return self.name
     
-    def all(self):
-        return super(IntersectionFeature,self).all().defer('geometry_poly','geometry_line','geometry_point')
+    @property
+    def model_with_my_geometries(self):
+        appname = os.path.dirname(__file__).split(os.path.sep).pop()
+        model_with_geom = models.get_model(appname,self.feature_model)
+        return model_with_geom
+    
+    @property
+    def geometry(self):
+        # Returns a multigeometry of the appropriate type containing all geometries for this intersection feature.
+        # Don't bother to call this on the large polygon features.  It takes far too long.
+        individual_features = self.model_with_my_geometries.objects.filter(feature_type=self)
+        
+        if model_with_my_geometries==ArealFeature:
+            mgeom = geos.fromstr('MULTIPOLYGON EMPTY')
+        elif model_with_my_geometries==LinearFeature:
+            mgeom = geos.fromstr('MULTILINESTRING EMPTY')
+        elif model_with_my_geometries==PointFeature:
+            mgeom = geos.fromstr('MULTIPOINT EMPTY')
+        else:
+            raise 'Could not figure out what geometry type to use.'
+        
+        if individual_features:
+            for feature in individual_features:
+                mgeom.append(feature.geometry)
+        return mgeom
+    
+    @property
+    def geometries_set(self):
+        # Returns a query set of all the ArealFeature, LinearFeature, or PointFeature objects related to this intersection feature.
+        return self.model_with_my_geometries.objects.filter(feature_type=self)
+                
     
 class CommonFeatureInfo(models.Model):
     name = models.CharField(max_length=255)
@@ -262,5 +287,38 @@ class PointFeature(CommonFeatureInfo):
     geometry = models.PointField(srid=3310)
     objects = models.GeoManager()
     
-def intersect_the_features(geom, feature_list=[i.pk for i in IntersectionFeature.objects.all()]):
-    print feature_list
+def intersect_the_features(geom, feature_list=None, with_geometries=False, with_kml=False):
+    if not feature_list:
+        feature_list = [i.pk for i in IntersectionFeature.objects.all()]
+    dict_list = []
+    for f_pk in feature_list:
+        dict = {}
+        f_gc = geos.fromstr('GEOMETRYCOLLECTION EMPTY')
+        int_feature = IntersectionFeature.objects.get(pk=f_pk)
+        dict['hab_id'] = f_pk
+        if not int_feature.feature_model=='PointFeature':
+            geom_set = int_feature.geometries_set.filter(geometry__intersects=geom)
+            for g in geom_set:
+                f_gc.append(geom.intersection(g.geometry))
+        else:
+            geom_set = int_feature.geometries_set.filter(geometry__within=geom)
+            for p in geom_set:
+                f_gc.append(p.geometry)
+            
+        dict['units'] = int_feature.output_units
+        if with_geometries:
+            dict['geo_collection'] = f_gc
+        if with_kml:
+            dict['kml'] = f_gc.kml    
+            
+        if int_feature.feature_model=='ArealFeature':
+            dict['result'] = A(sq_m=f_gc.area).sq_mi
+        elif int_feature.feature_model=='LinearFeature':
+            dict['result'] = D(m=f_gc.length).mi
+        elif int_feature.feature_model=='PointFeature':
+            dict['result'] = f_gc.num_geom
+        
+        dict_list.append(dict)
+        
+    return dict_list
+    
