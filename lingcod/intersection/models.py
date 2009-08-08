@@ -252,9 +252,6 @@ def zip_from_shp(shp_path):
             zfile.write(name, bn, zipfile.ZIP_DEFLATED)
     zfile.close()
     
-#        self.name = filename
-#        self.shapefile = File( open(zfile_path) )
-#        self.save()
     return filename, File( open(zfile_path) )
     
 class Shapefile(models.Model):
@@ -330,7 +327,11 @@ class MultiFeatureShapefile(Shapefile):
         for dv in distinct_values:
             new_name, file = self.single_shapefile_from_field_value(field_name, dv)
             sfsf, created = SingleFeatureShapefile.objects.get_or_create(name=dv)
+            if not created: #get rid of the old shapefile so it's not hangin around
+                sfsf.shapefile.delete()
             sfsf.shapefile = file
+#            if os.path.exists(sfsf.shapefile.path):
+#                os.remove(sfsf.shapefile.path)
             sfsf.parent_shapefile = self
             sfsf.save()
             
