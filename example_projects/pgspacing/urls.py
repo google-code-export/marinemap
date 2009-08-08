@@ -1,6 +1,6 @@
 from django.conf.urls.defaults import *
 from lingcod.pg_spacing.views import *
-from lingcod.intersection.views import upload_intersection_feature
+from lingcod.intersection.views import *
 
 # Uncomment the next two lines to enable the admin:
 from django.contrib.gis import admin
@@ -22,6 +22,6 @@ urlpatterns = patterns('',
     # (r'^admin/doc/', include('django.contrib.admindocs.urls')),
 
     # Uncomment the next line to enable the admin:
-    url(r'^admin/intersection/multifeatureshapefile/splitonfield/\d/\w$', split_to_single_shapefiles, name='split_to_single_shapefiles'),
+    url(r'^admin/intersection/multifeatureshapefile/(\d+)/splitonfield/$', split_to_single_shapefiles, name='split_to_single_shapefiles'),
     (r'^admin/', include(admin.site.urls)),
 )
