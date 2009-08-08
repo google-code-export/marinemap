@@ -1,8 +1,6 @@
 {% extends "admin/change_form.html" %}
 
 {% block form_top %}
-  <a href='/admin/intersection/multifeatureshapefile/{{mfshp_pk_key}}/splitonfield/'>Split to Single Feature Shapefiles</a>
-  {% for blah in adminform %}
-  	{{blah}}
-  {% endfor %}
+  <a href='splitonfield/'>Split to Single Feature Shapefiles</a>
+  
 {% endblock %}
