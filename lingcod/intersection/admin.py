@@ -6,13 +6,28 @@ def load_to_features(modeladmin, request, queryset):
         shp.load_to_features()
 load_to_features.short_description = 'Load the selected shapefiles to intersection features'
 
-admin.site.register(TestPolygon, admin.GeoModelAdmin)
-admin.site.register(IntersectionFeature)
+class TestPolygonAdmin(admin.GeoModelAdmin):
+    pass
+
+admin.site.register(TestPolygon, TestPolygonAdmin)
+
+class IntersectionFeatureAdmin(admin.ModelAdmin):
+    list_display = ('id','name','feature_model','date_created','date_modified')
+admin.site.register(IntersectionFeature, IntersectionFeatureAdmin)
 
 class ShapefileFieldInline(admin.TabularInline):
     model = ShapefileField
     extra = 0
 
+class FeatureMappingInline(admin.TabularInline):
+    model = FeatureMapping
+    extra = 1
+    
+class OrganizationSchemeAdmin(admin.ModelAdmin):
+    inlines = [FeatureMappingInline]
+
+admin.site.register(OrganizationScheme, OrganizationSchemeAdmin)
+    
 class MultiFeatureShapefileAdmin(admin.ModelAdmin):
     list_display = ('name','date_created','date_modified')
     fieldsets = [

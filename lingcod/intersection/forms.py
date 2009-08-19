@@ -1,6 +1,7 @@
 from django import forms
 #from django.contrib.admin.helpers import AdminForm
 from lingcod.intersection.models import *
+from lingcod.intersection.admin import *
 
         
 class SplitToSingleFeaturesForm(forms.Form):
@@ -11,4 +12,17 @@ class SplitToSingleFeaturesForm(forms.Form):
     mfshp_pk = forms.IntegerField(widget=forms.HiddenInput)
     shp_field = forms.ChoiceField(label='Shape file field to split on (# of distinct values in field)')
 
-        
+admin_instance = TestPolygonAdmin(TestPolygon,admin.site)
+poly_field = TestPolygon._meta.get_field('geometry')
+admin_instance.default_lat = 33.5
+admin_instance.default_lon = -119
+admin_instance.default_zoom = 7
+PolygonWidget = admin_instance.get_map_widget(poly_field)
+
+
+class TestPolygonForm(forms.ModelForm):
+    geometry = forms.CharField(widget=PolygonWidget() )
+    class Meta:
+        model = TestPolygon
+    class Media:
+        js = ("http://openlayers.org/api/2.6/OpenLayers.js",)

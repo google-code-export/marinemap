@@ -21,5 +21,16 @@ def split_to_single_shapefiles(request, mfshp_pk):
     
     return render_to_response('split_to_single_feature_shapefiles.html', {'form': form, 'mfshp_pk_key': mfshp_pk})
 
-def intersect(geom):
-    result = intersect_the_features(geom)
+def intersect(request):
+    if request.method == 'POST':
+        form = TestPolygonForm(request.POST)
+        if form.is_valid():
+            geom = geos.fromstr(form.cleaned_data['geometry'])
+            geom.transform(3310)
+            result = intersect_the_features(geom)
+            return render_to_response('generic_results.html', {'result': result})
+    else:
+        form = TestPolygonForm()
+#    result = intersect_the_features(geom)
+#    return render_to_response('generic_results.html', {'result': result})
+    return render_to_response('polygon_form.html', {'form': form})
