@@ -55,183 +55,34 @@ def validate_zipped_shp(file_path):
         return False, 'You must supply a .shx file for the Shapefile to have a valid index.'
     else:
         return True, None
- 
 
-#
-#def load_features(file_name, feature_name, verbose=True):
-#    ## This method loads individual features (with polygon, linestring, or point geometry) into
-#    # the appropriate model and loads relevant data and corresponding multi-geometry into the 
-#    # IntersectionFeature model
-#    
-#    shpfile = os.path.abspath(os.path.join(DATA_PATH, file_name))
-#    #shpfile = os.path.abspath(os.path.join(os.path.dirname(__file__), 'data', file_name))
-#    ds = DataSource(shpfile)
-#    #Data source objects can have different layers of geospatial features; however, 
-#    #shapefiles are only allowed to have one layer
-#    lyr = ds[0] 
-#    
-#    # make or update the intersection feature in the IntersectionFeature model
-#    intersection_feature, created = IntersectionFeature.objects.get_or_create(name=feature_name)
-#    intersection_feature.native_units = lyr.srs.units[1]
-#    intersection_feature.save() # we need the pk value
-#    if created:
-#        intersection_feature = IntersectionFeature.objects.get(name=feature_name)
-#    
-#    ds = DataSource(shpfile)
-#    lyr = ds[0]
-#    if lyr.geom_type=='LineString':
-#        feature_model = LinearFeature
-#        out_units = LINEAR_OUT_UNITS
-#        #mgeom = geos.fromstr('MULTILINESTRING EMPTY')
-#    elif lyr.geom_type=='Polygon':
-#        feature_model = ArealFeature
-#        out_units = AREAL_OUT_UNITS
-#        intersection_feature.native_units = 'Sq ' + intersection_feature.native_units
-#        #mgeom = geos.fromstr('MULTIPOLYGON EMPTY')
-#    elif lyr.geom_type=='Point':
-#        feature_model = PointFeature
-#        out_units = POINT_OUT_UNITS
-#        #mgeom = geos.fromstr('MULTILIPOINT EMPTY')
-#    else:
-#        raise 'Unrecognized type for load_features.'
-#    
-#    # get rid of old stuff if it's there
-#    feature_model.objects.filter(feature_type=intersection_feature).delete()
-#    
-#    if verbose:
-#        print 'Loading %s from %s' % (feature_name,file_name)
-#    
-#    area = 0.0
-#    length = 0.0
-#    count = 0
-#    
-#    for feat in lyr:
-#        if feat.geom.__class__.__name__.startswith('Multi'):
-#            if verbose:
-#                print '(',
-#            for f in feat.geom: #get the individual geometries
-#                fm = feature_model(name=feature_name,feature_type=intersection_feature)
-#                fm.geometry = f.geos
-#                #mgeom.append(fm.geometry)
-#                if out_units==AREAL_OUT_UNITS:
-#                    area += fm.geometry.area
-#                elif out_units==LINEAR_OUT_UNITS:
-#                    length += fm.geometry.length
-#                else:
-#                    count += 1
-#                fm.save()
-#                if verbose:
-#                    print '-',
-#            if verbose:
-#                print ')',
-#        else:
-#            fm = feature_model(name=feature_name,feature_type=intersection_feature)
-#            fm.geometry = feat.geom.geos
-#            #mgeom.append(fm.geometry)
-#            if out_units==AREAL_OUT_UNITS:
-#                area += fm.geometry.area
-#            elif out_units==LINEAR_OUT_UNITS:
-#                length += fm.geometry.length
-#            else:
-#                count += 1
-#            fm.save()
-#            if verbose:
-#                print '.',
-#    
-#    
-#    if out_units==AREAL_OUT_UNITS:
-#        intersection_feature.study_region_total = A(sq_m=area).sq_mi
-#    elif out_units==LINEAR_OUT_UNITS:
-#        intersection_feature.study_region_total = D(m=length).mi
-#    else:
-#        intersection_feature.study_region_total = count
-#    intersection_feature.output_units = out_units
-#    intersection_feature.shapefile_name = file_name
-#    intersection_feature.feature_model = feature_model.__name__
-#    intersection_feature.save()
-#    
-#                
-#def shapefile_from_field_value(file_name, field_name, field_value):
-#    driver = ogr.GetDriverByName('ESRI Shapefile')
-#    shpfile = os.path.abspath(os.path.join(DATA_PATH, file_name))
-#    #open input data source
-#    ds_in = driver.Open(shpfile,0)
-#    if ds_in is None:
-#        raise 'Could not open input shapefile'
-#    lyr_in = ds_in.GetLayer()
-#    
-#    #determine what geometry type we're dealing with
-#    feat = lyr_in.GetFeature(0)
-#    geom = feat.GetGeometryRef()
-#    gname = geom.GetGeometryName()
-#        
-#    # create a new data source and layer
-#    fn = slugify(field_value) + '.shp'
-#    fn = str(os.path.abspath(os.path.join(DATA_PATH, fn)))
-#    
-#    if os.path.exists(fn):
-#      driver.DeleteDataSource(fn)
-#    ds_out = driver.CreateDataSource(fn)
-#    if ds_out is None:
-#      raise 'Could not create file: %s' % fn
-#    
-#    if gname.lower().endswith('polygon'):
-#        geometry_type = ogr.wkbMultiPolygon
-#    elif gname.lower().endswith('linestring'):
-#        geometry_type = ogr.wkbMultiLineString
-#    elif gname.lower().endswith('linestring'):
-#        geometry_type = ogr.wkbMultiPoint
-#    else:
-#        raise 'Unregonized geometry type'
-#    
-#    lyr_out = ds_out.CreateLayer(str(slugify(field_value)), geom_type=geometry_type)
-#    
-#    # get the FieldDefn's for the fields in the input shapefile
-#    transferFieldDefn = feat.GetFieldDefnRef(field_name)
-#    
-#    #create new fields in the output shapefile
-#    lyr_out.CreateField(transferFieldDefn)
-#    
-#    #get the FeatureDefn for the output
-#    feat_defn = lyr_out.GetLayerDefn()
-#    
-#    # loop through the input features
-#    feat_in = lyr_in.GetNextFeature()
-#    while feat_in:
-#        field = feat_in.GetField(field_name)
-#        
-#        if field==field_value:
-#            # create new feature
-#            feat_out = ogr.Feature(feat_defn)
-#            #set the geometry
-#            geom_in = feat_in.GetGeometryRef()
-#            feat_out.SetGeometry(geom_in)
-#            #set the attributes
-#            id = feat_in.GetFID()
-#            feat_out.SetFID(id)
-#            feat_out.SetField(field_name,field)
-#            # add the feature to the ouput layer
-#            lyr_out.CreateFeature(feat_out)
-#            # destroy the output feature
-#            feat_out.Destroy()
-#        
-#        #destroy the input feature and get a new one
-#        feat_in.Destroy()
-#        feat_in = lyr_in.GetNextFeature()
-#    
-#    # get the projection from the input shapefile and write a .prj file for the output
-#    spatial_ref = lyr_in.GetSpatialRef()
-#    fn_prj = slugify(field_value) + '.prj'
-#    fn_prj = str(os.path.abspath(os.path.join(DATA_PATH, fn_prj)))
-#    file = open(fn_prj,'w')
-#    spatial_ref.MorphToESRI()
-#    file.write(spatial_ref.ExportToWkt())
-#    file.close()
-#    
-#    ds_in.Destroy()
-#    ds_out.Destroy()
-#    
-#    return os.path.basename(fn)
+def largest_poly_from_multi(geom):
+    # takes a polygon or a multipolygon and returns only the largest polygon
+    if geom.num_geom > 1:
+        geom_area = 0.0
+        for g in geom: # find the largest polygon in the multi polygon and use that
+            if g.area > geom_area:
+                the_one_true_geom = g
+                geom_area = g.area
+    else:
+        the_one_true_geom = geom
+    return the_one_true_geom
+
+def clean_geometry(geom):
+    from django.db import connection
+    cursor = connection.cursor()
+    query = "select cleangeometry(st_geomfromewkt(\'%s\')) as geometry" % geom.ewkt
+    cursor.execute(query)
+    row = cursor.fetchone()
+    newgeom = geos.fromstr(row[0])
+    # sometimes, clean returns a multipolygon
+    geometry = largest_poly_from_multi(newgeom)
+    # transform back to proper projection
+    if not geometry.valid or geometry.num_coords < 2:
+        raise Exception("I can't clean this geometry. Dirty, filthy geometry. This geometry should be ashamed.")
+    else:
+        return geometry
+
 
 def zip_from_shp(shp_path):
     # given a path to a '.shp' file, zip it and return the filename and a file object
@@ -480,6 +331,8 @@ class SingleFeatureShapefile(Shapefile):
                 for f in feat.geom: #get the individual geometries
                     fm = feature_model(name=feature_name,feature_type=intersection_feature)
                     fm.geometry = f.geos
+                    if not fm.geometry.valid:
+                        fm.geometry = clean_geometry(fm.geometry)
                     #mgeom.append(fm.geometry)
                     if out_units==AREAL_OUT_UNITS:
                         area += fm.geometry.area
@@ -495,6 +348,8 @@ class SingleFeatureShapefile(Shapefile):
             else:
                 fm = feature_model(name=feature_name,feature_type=intersection_feature)
                 fm.geometry = feat.geom.geos
+                if not fm.geometry.valid:
+                    fm.geometry = clean_geometry(fm.geometry)
                 #mgeom.append(fm.geometry)
                 if out_units==AREAL_OUT_UNITS:
                     area += fm.geometry.area
@@ -588,7 +443,65 @@ class IntersectionFeature(models.Model):
     def geometries_set(self):
         # Returns a query set of all the ArealFeature, LinearFeature, or PointFeature objects related to this intersection feature.
         return self.model_with_my_geometries.objects.filter(feature_type=self)
-                
+
+class OrganizationScheme(models.Model):
+    name = models.CharField(max_length=255)
+    
+    def __unicode__(self):
+        return self.name
+    
+    def transformed_results(self, geom, with_geometries=False, with_kml=False):
+        new_results = []
+        for fm in self.featuremapping_set.all():
+            dict = {}
+            #features = fm.feature.all()
+            dict['feature_name'] = fm.name
+            feature_pks = [f.pk for f in fm.feature.all()]
+            results = intersect_the_features(geom, feature_list=feature_pks, with_geometries=with_geometries or with_kml, with_kml=with_kml)
+            intersection_total = 0.0
+            if with_geometries or with_kml:
+                f_gc = geos.fromstr('GEOMETRYCOLLECTION EMPTY')
+            for pk in feature_pks:
+                for result in results:
+                    if result['hab_id']==pk:
+                        intersection_total += result['result']
+                        if with_geometries or with_kml:
+                            f_gc = f_gc + result['geo_collection']
+            dict['result'] = intersection_total
+            dict['sort'] = fm.sort
+            dict['units'] = fm.feature.all()[0].output_units
+            if with_geometries:
+                dict['geo_collection'] = f_gc
+            if with_kml:
+                dict['kml'] = f_gc.kml
+            new_results.append(dict)
+        
+        return new_results
+            
+    
+class FeatureMapping(models.Model):
+    organization_scheme = models.ForeignKey(OrganizationScheme)
+    feature = models.ManyToManyField(IntersectionFeature)
+    name = models.CharField(max_length=255)
+    sort = models.FloatField()    
+    
+    def __unicode__(self):
+        return self.name  
+    
+    def validate(self):
+        # Make sure that if there are multiple features to be combined that they all have the 
+        # same units.
+        units = self.feature.all()[0].output_units
+        if False in [units==f.output_units for f in self.feature.all()]:
+            return False
+        else:
+            return True
+        
+    def save(self):
+        if not self.validate():
+            raise Exception('You can not combine feature types with different output units.  That just would not make any sense, would it?')
+        else:
+            super(FeatureMapping,self).save()
     
 class CommonFeatureInfo(models.Model):
     name = models.CharField(max_length=255)
@@ -630,7 +543,9 @@ def intersect_the_features(geom, feature_list=None, with_geometries=False, with_
         if not int_feature.feature_model=='PointFeature':
             geom_set = int_feature.geometries_set.filter(geometry__intersects=geom)
             for g in geom_set:
-                f_gc.append(geom.intersection(g.geometry))
+                intersect_geom = geom.intersection(g.geometry)
+                geom_area = geom.area
+                f_gc.append(intersect_geom)
         else:
             geom_set = int_feature.geometries_set.filter(geometry__within=geom)
             for p in geom_set:
