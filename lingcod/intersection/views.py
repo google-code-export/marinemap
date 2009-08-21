@@ -23,14 +23,20 @@ def split_to_single_shapefiles(request, mfshp_pk):
 
 def intersect(request):
     if request.method == 'POST':
-        form = TestPolygonForm(request.POST)
+        form = TestIntersectionForm(request.POST)
         if form.is_valid():
             geom = geos.fromstr(form.cleaned_data['geometry'])
+            org_scheme = form.cleaned_data['org_scheme']
             geom.transform(3310)
-            result = intersect_the_features(geom)
-            return render_to_response('generic_results.html', {'result': result})
+            if org_scheme == 'None':
+                result = intersect_the_features(geom)
+                return render_to_response('generic_results.html', {'result': result})
+            else:
+                osc = OrganizationScheme.objects.get(pk=org_scheme)
+                result = osc.transformed_results(geom)
+                return render_to_response('transformed_results.html', {'result': result})
     else:
-        form = TestPolygonForm()
+        form = TestIntersectionForm()
 #    result = intersect_the_features(geom)
 #    return render_to_response('generic_results.html', {'result': result})
     return render_to_response('polygon_form.html', {'form': form})

@@ -6,15 +6,13 @@
 
 	<table>
 		<tr>
-			<td>Hab Id</td>
 			<td>Feature Name</td>
 			<td>Result</td>
 			<td>Percent of SR Total</td>
 			<td>Units</td>
 		</tr>
-		{% for item in result %}
+		{% for item in result|dictsort:'sort' %}
 		<tr>	
-			<td>{{ item.hab_id }}</td>
 			<td>{{ item.feature_name }}</td>
 			<td>{{ item.result }}</td>
 			<td>{{ item.percent_of_total }}</td>
