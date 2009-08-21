@@ -6,6 +6,10 @@ def load_to_features(modeladmin, request, queryset):
         shp.load_to_features()
 load_to_features.short_description = 'Load the selected shapefiles to intersection features'
 
+#def validate_feature_mapping(modeladmin,request,queryset):
+#    for fm in queryset:
+        
+
 class TestPolygonAdmin(admin.GeoModelAdmin):
     pass
 

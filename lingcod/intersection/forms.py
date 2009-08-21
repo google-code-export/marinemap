@@ -20,7 +20,10 @@ admin_instance.default_zoom = 7
 PolygonWidget = admin_instance.get_map_widget(poly_field)
 
 
-class TestPolygonForm(forms.ModelForm):
+class TestIntersectionForm(forms.ModelForm):
+    OrganizationScheme_Choices = [('None', 'Default')]
+    [OrganizationScheme_Choices.append((osc.pk,osc.name)) for osc in OrganizationScheme.objects.all()]
+    org_scheme = forms.ChoiceField(choices=OrganizationScheme_Choices)
     geometry = forms.CharField(widget=PolygonWidget() )
     class Meta:
         model = TestPolygon

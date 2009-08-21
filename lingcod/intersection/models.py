@@ -11,7 +11,7 @@ import zipfile
 import glob
 
 # I think I may be able to get rid of this because I'm using django file fields now
-DATA_PATH = os.path.join(os.path.dirname(__file__), 'data') #'C:/pydevWorkspace/reporting_dev/lingcod/intersection/data/' #
+#DATA_PATH = os.path.join(os.path.dirname(__file__), 'data') #'C:/pydevWorkspace/reporting_dev/lingcod/intersection/data/' #
 
 # Maybe these should go somewhere else?  Maybe get stored in a model?
 LINEAR_OUT_UNITS = 'miles'
@@ -23,13 +23,6 @@ SHP_EXTENSIONS = ['shp','dbf','prj','sbn','sbx','shx','shp.xml','qix','fix']
 
 def endswithshp(string):
     return string.endswith('.shp')
-
-def list_shapefiles(dpath=DATA_PATH):
-    dict = {}
-    file_list = os.listdir(dpath)
-    shp_list = filter(endswithshp, file_list)
-    for shp in shp_list:
-        dict[shp] = {}
         
 def zip_check(ext, zip_file):
     if not True in [info.filename.endswith(ext) for info in zip_file.infolist()]:
@@ -391,7 +384,7 @@ class TestPolygon(models.Model):
 class IntersectionFeature(models.Model):
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(null=True, blank=True)
-    study_region_total = models.FloatField(null=True, blank=True, help_text="This is the linear quantity of this habitat type available within the study region. This value will be generated programmatically and should not be manually altered")
+    study_region_total = models.FloatField(null=True, blank=True, help_text="This is the quantity of this habitat type available within the study region. This value will be generated programmatically and should not be manually altered")
     native_units = models.CharField(max_length=255,null=True, blank=True, help_text="Units native to this layer's projection.")
     output_units = models.CharField(max_length=255,null=True, blank=True, help_text="Unit label to be displayed after results from this table.")
     #shapefile_name = models.TextField(null=True, blank=True, help_text="The name of the shapefile that was imported to the database.")
@@ -412,6 +405,10 @@ class IntersectionFeature(models.Model):
    
     def __unicode__(self):
         return self.name
+    
+    def save(self):
+        self.expire_cached_results()
+        super(IntersectionFeature,self).save()
     
     @property
     def model_with_my_geometries(self):
@@ -443,6 +440,9 @@ class IntersectionFeature(models.Model):
     def geometries_set(self):
         # Returns a query set of all the ArealFeature, LinearFeature, or PointFeature objects related to this intersection feature.
         return self.model_with_my_geometries.objects.filter(feature_type=self)
+    
+    def expire_cached_results(self):
+        self.resultcache_set.all().delete()
 
 class OrganizationScheme(models.Model):
     name = models.CharField(max_length=255)
@@ -497,11 +497,14 @@ class FeatureMapping(models.Model):
         else:
             return True
         
-    def save(self):
-        if not self.validate():
-            raise Exception('You can not combine feature types with different output units.  That just would not make any sense, would it?')
-        else:
-            super(FeatureMapping,self).save()
+#    def save(self):
+#        super(FeatureMapping,self).save()
+#        pk = self.pk
+#        if not self.validate():
+#            self.delete()
+#            raise Exception('You can not combine feature types with different output units.  That just would not make any sense, would it?')
+#        else:
+#            super(FeatureMapping,self).save()
     
 class CommonFeatureInfo(models.Model):
     name = models.CharField(max_length=255)
@@ -531,7 +534,18 @@ class PointFeature(CommonFeatureInfo):
     geometry = models.PointField(srid=3310)
     objects = models.GeoManager()
     
+class ResultCache(models.Model):
+    wkt_hash = models.IntegerField()
+    intersection_feature = models.ForeignKey(IntersectionFeature)
+    result = models.FloatField()
+    units = models.CharField(max_length=255)
+    percent_of_total = models.FloatField()
+    date_modified = models.DateTimeField(auto_now=True)
+    geometry = models.GeometryCollectionField()
+    objects = models.GeoManager()
+    
 def intersect_the_features(geom, feature_list=None, with_geometries=False, with_kml=False):
+    # if no feature list is specified, get all the features
     if not feature_list:
         feature_list = [i.pk for i in IntersectionFeature.objects.all()]
     dict_list = []
@@ -540,31 +554,51 @@ def intersect_the_features(geom, feature_list=None, with_geometries=False, with_
         f_gc = geos.fromstr('GEOMETRYCOLLECTION EMPTY')
         int_feature = IntersectionFeature.objects.get(pk=f_pk)
         dict['hab_id'] = f_pk
-        if not int_feature.feature_model=='PointFeature':
-            geom_set = int_feature.geometries_set.filter(geometry__intersects=geom)
-            for g in geom_set:
-                intersect_geom = geom.intersection(g.geometry)
-                geom_area = geom.area
-                f_gc.append(intersect_geom)
-        else:
-            geom_set = int_feature.geometries_set.filter(geometry__within=geom)
-            for p in geom_set:
-                f_gc.append(p.geometry)
-            
+        dict['feature_name'] = int_feature.name
         dict['units'] = int_feature.output_units
-        if with_geometries:
-            dict['geo_collection'] = f_gc
-        if with_kml:
-            dict['kml'] = f_gc.kml    
+        try: # get results from cache if they're there
+            rc = ResultCache.objects.get( wkt_hash=geom.wkt.__hash__(), intersection_feature=int_feature )
+            dict['result'] = rc.result
+            dict['percent_of_total'] = rc.percent_of_total
+            if with_geometries:
+                dict['geo_collection'] = rc.geometry
+            if with_kml:
+                dict['kml'] = rc.geometry.kml 
+                
+        except ResultCache.DoesNotExist: # Calculate if cached results doen't exist
+            if not int_feature.feature_model=='PointFeature':
+                geom_set = int_feature.geometries_set.filter(geometry__intersects=geom)
+                for g in geom_set:
+                    intersect_geom = geom.intersection(g.geometry)
+                    geom_area = geom.area
+                    f_gc.append(intersect_geom)
+            else:
+                geom_set = int_feature.geometries_set.filter(geometry__within=geom)
+                for p in geom_set:
+                    f_gc.append(p.geometry)
+                
+            if with_geometries:
+                dict['geo_collection'] = f_gc
+            if with_kml:
+                dict['kml'] = f_gc.kml    
+                
+            if int_feature.feature_model=='ArealFeature':
+                dict['result'] = A(sq_m=f_gc.area).sq_mi
+            elif int_feature.feature_model=='LinearFeature':
+                dict['result'] = D(m=f_gc.length).mi
+            elif int_feature.feature_model=='PointFeature':
+                dict['result'] = f_gc.num_geom
+                
+            dict['percent_of_total'] = (dict['result'] / int_feature.study_region_total) * 100
             
-        if int_feature.feature_model=='ArealFeature':
-            dict['result'] = A(sq_m=f_gc.area).sq_mi
-        elif int_feature.feature_model=='LinearFeature':
-            dict['result'] = D(m=f_gc.length).mi
-        elif int_feature.feature_model=='PointFeature':
-            dict['result'] = f_gc.num_geom
-        
+            # Cache the results we've calculated
+            rc = ResultCache( wkt_hash=geom.wkt.__hash__(), intersection_feature=int_feature )
+            rc.result = dict['result']
+            rc.units = int_feature.output_units
+            rc.percent_of_total = dict['percent_of_total']
+            rc.geometry = f_gc
+            rc.save()
+            
         dict_list.append(dict)
-        
     return dict_list
     
