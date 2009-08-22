@@ -29,3 +29,15 @@ class TestIntersectionForm(forms.ModelForm):
         model = TestPolygon
     class Media:
         js = ("http://openlayers.org/api/2.6/OpenLayers.js",)
+        
+class TestPolygonIntersectionForm(forms.ModelForm):
+    OrganizationScheme_Choices = [('None', 'Default')]
+    [OrganizationScheme_Choices.append((osc.pk,osc.name)) for osc in OrganizationScheme.objects.all()]
+    org_scheme = forms.ChoiceField(choices=OrganizationScheme_Choices)
+    
+    TestPoly_Choices = [(tp.geometry.wkt,tp.pk) for tp in TestPolygon.objects.all()]
+    geometry = forms.ChoiceField(choices=TestPoly_Choices)
+    class Meta:
+        model = TestPolygon
+    class Media:
+        js = ("http://openlayers.org/api/2.6/OpenLayers.js",)
