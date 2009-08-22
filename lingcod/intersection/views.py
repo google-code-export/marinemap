@@ -37,6 +37,22 @@ def intersect(request):
                 return render_to_response('transformed_results.html', {'result': result})
     else:
         form = TestIntersectionForm()
-#    result = intersect_the_features(geom)
-#    return render_to_response('generic_results.html', {'result': result})
     return render_to_response('polygon_form.html', {'form': form})
+
+def test_poly_intersect(request):
+    if request.method == 'POST':
+        form = TestPolygonIntersectionForm(request.POST)
+        if form.is_valid():
+            geom = geos.fromstr(form.cleaned_data['geometry'])
+            org_scheme = form.cleaned_data['org_scheme']
+            geom.transform(3310)
+            if org_scheme == 'None':
+                result = intersect_the_features(geom)
+                return render_to_response('generic_results.html', {'result': result})
+            else:
+                osc = OrganizationScheme.objects.get(pk=org_scheme)
+                result = osc.transformed_results(geom)
+                return render_to_response('transformed_results.html', {'result': result})
+    else:
+        form = TestPolygonIntersectionForm()
+    return render_to_response('testpolygon_intersection.html', {'form': form})
