@@ -13,7 +13,7 @@ def split_to_single_shapefiles(request, mfshp_pk):
                 shp_field = form.cleaned_data['shp_field']
                 mfshp = MultiFeatureShapefile.objects.get(pk=mfshp_pk)
                 mfshp.split_to_single_feature_shapefiles(str(shp_field))
-                return HttpResponseRedirect('../../../singlefeatureshapefile')
+                return HttpResponseRedirect('/admin/intersection/singlefeatureshapefile/')
         else:
             form = SplitToSingleFeaturesForm(mfshp_pk)
     else:

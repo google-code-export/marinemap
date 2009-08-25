@@ -265,7 +265,7 @@ class MultiFeatureShapefile(Shapefile):
 class SingleFeatureShapefile(Shapefile):
     # These shape files contain geometries that represent only one intersection feature.
     shapefile = models.FileField(upload_to='intersection/shapefiles/singlefeature')
-    parent_shapefile = models.ForeignKey(MultiFeatureShapefile, null=True)
+    parent_shapefile = models.ForeignKey(MultiFeatureShapefile, null=True, blank=True)
     
     def __unicode__(self):
         return self.name
@@ -371,7 +371,7 @@ class ShapefileField(models.Model):
     # We'll need information about the fields of multi feature shapefiles so we can turn them into single feature shapefiles
     name = models.CharField(max_length=255)
     distinct_values = models.IntegerField()
-    type = models.CharField(max_length=255, null=True)
+    type = models.CharField(max_length=255, null=True, blank=True)
     shapefile = models.ForeignKey(MultiFeatureShapefile)
     
     def __unicode__(self):
