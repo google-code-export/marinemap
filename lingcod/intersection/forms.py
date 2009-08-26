@@ -17,6 +17,7 @@ poly_field = TestPolygon._meta.get_field('geometry')
 admin_instance.default_lat = 33.5
 admin_instance.default_lon = -119
 admin_instance.default_zoom = 7
+admin_instance.display_wkt = True
 PolygonWidget = admin_instance.get_map_widget(poly_field)
 
 
@@ -24,6 +25,8 @@ class TestIntersectionForm(forms.ModelForm):
     OrganizationScheme_Choices = [('None', 'Default')]
     [OrganizationScheme_Choices.append((osc.pk,osc.name)) for osc in OrganizationScheme.objects.all()]
     org_scheme = forms.ChoiceField(choices=OrganizationScheme_Choices)
+    FormatChoices = [('html', 'HTML'), ('csv', 'CSV')]
+    format = forms.ChoiceField(choices=FormatChoices)
     geometry = forms.CharField(widget=PolygonWidget() )
     class Meta:
         model = TestPolygon
@@ -34,7 +37,8 @@ class TestPolygonIntersectionForm(forms.ModelForm):
     OrganizationScheme_Choices = [('None', 'Default')]
     [OrganizationScheme_Choices.append((osc.pk,osc.name)) for osc in OrganizationScheme.objects.all()]
     org_scheme = forms.ChoiceField(choices=OrganizationScheme_Choices)
-    
+    FormatChoices = [('html', 'HTML'), ('csv', 'CSV')]
+    format = forms.ChoiceField(choices=FormatChoices)
     TestPoly_Choices = [(tp.geometry.wkt,tp.pk) for tp in TestPolygon.objects.all()]
     geometry = forms.ChoiceField(choices=TestPoly_Choices)
     class Meta:

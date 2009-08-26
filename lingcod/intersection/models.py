@@ -70,7 +70,7 @@ def clean_geometry(geom):
     newgeom = geos.fromstr(row[0])
     # sometimes, clean returns a multipolygon
     geometry = largest_poly_from_multi(newgeom)
-    # transform back to proper projection
+    
     if not geometry.valid or geometry.num_coords < 2:
         raise Exception("I can't clean this geometry. Dirty, filthy geometry. This geometry should be ashamed.")
     else:
@@ -283,7 +283,13 @@ class SingleFeatureShapefile(Shapefile):
         lyr = ds[0] 
         
         # make or update the intersection feature in the IntersectionFeature model
-        intersection_feature, created = IntersectionFeature.objects.get_or_create(name=feature_name)
+        try:
+            intersection_feature = IntersectionFeature.objects.get(name=feature_name)
+            created = False
+        except IntersectionFeature.DoesNotExist:
+            intersection_feature = IntersectionFeature(name=feature_name)
+            created = True
+
         intersection_feature.native_units = lyr.srs.units[1]
         intersection_feature.save() # we need the pk value
         if created:
@@ -459,15 +465,18 @@ class OrganizationScheme(models.Model):
             feature_pks = [f.pk for f in fm.feature.all()]
             results = intersect_the_features(geom, feature_list=feature_pks, with_geometries=with_geometries or with_kml, with_kml=with_kml)
             intersection_total = 0.0
+            percent_sr_total = 0.0
             if with_geometries or with_kml:
                 f_gc = geos.fromstr('GEOMETRYCOLLECTION EMPTY')
             for pk in feature_pks:
                 for result in results:
                     if result['hab_id']==pk:
                         intersection_total += result['result']
+                        percent_sr_total += result['percent_of_total']
                         if with_geometries or with_kml:
                             f_gc = f_gc + result['geo_collection']
             dict['result'] = intersection_total
+            dict['percent_of_total'] = percent_sr_total
             dict['sort'] = fm.sort
             dict['units'] = fm.feature.all()[0].output_units
             if with_geometries:

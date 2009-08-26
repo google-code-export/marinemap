@@ -5,6 +5,10 @@ urlpatterns = patterns('',
     #(r'multifeatureshapefile/splitbyfield/$',upload_intersection_feature),
     
     (r'^login', 'django.contrib.auth.views.login'),
-    (r'^intersect$', intersect ),
-    (r'^intersect/testpolygon', test_poly_intersect),
+    (r'^intersect/testdrawing/$', test_drawing_intersect ),
+    (r'^intersect/testpolygon/$', test_poly_intersect),
+    (r'^info/organization_schemes/$', org_scheme_info ),
+    (r'(\d+)/(\w+)/(.*)$', organized_intersection ),
+    (r'(\w+)/(.*)$', default_intersection ),
+#    (r'^intersect/testpolygon/csv$', test_poly_intersect_csv),
 )
