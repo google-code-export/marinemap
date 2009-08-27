@@ -1,0 +1,189 @@
+(lp0
+(dp1
+S'units'
+p2
+Vcount
+p3
+sS'percent_of_total'
+p4
+F33.333333333299997
+sS'feature_name'
+p5
+Vtest points
+p6
+sS'hab_id'
+p7
+I3
+sS'result'
+p8
+F3.0
+sa(dp9
+g2
+Vmiles
+p10
+sg4
+F18.984562256299998
+sg5
+VBeaches
+p11
+sg7
+I1
+sg8
+F0.276012211166
+sa(dp12
+g2
+Vmiles
+p13
+sg4
+F46.951230622399997
+sg5
+VRocky Shores
+p14
+sg7
+I4
+sg8
+F1.36054566095
+sa(dp15
+g2
+Vsq miles
+p16
+sg4
+F27.8914827716
+sg5
+VSoft 0 - 30m
+p17
+sg7
+I5
+sg8
+F0.45256412728599998
+sa(dp18
+g2
+Vsq miles
+p19
+sg4
+F0.0
+sg5
+Vunknown 50 - 100m
+p20
+sg7
+I6
+sg8
+F0.0
+sa(dp21
+g2
+Vsq miles
+p22
+sg4
+F0.0
+sg5
+VHard 100 - 200m
+p23
+sg7
+I7
+sg8
+F0.0
+sa(dp24
+g2
+Vsq miles
+p25
+sg4
+F18.448517040199999
+sg5
+VHard 0 - 30m
+p26
+sg7
+I8
+sg8
+F0.058751415048000001
+sa(dp27
+g2
+Vsq miles
+p28
+sg4
+F14.719179201299999
+sg5
+VSoft 30 - 50m
+p29
+sg7
+I9
+sg8
+F0.20385303340899999
+sa(dp30
+g2
+Vsq miles
+p31
+sg4
+F5.5692035782799998
+sg5
+VHard 50 - 100m
+p32
+sg7
+I10
+sg8
+F0.010358370529899999
+sa(dp33
+g2
+Vsq miles
+p34
+sg4
+F16.350436902199998
+sg5
+VSoft 50 - 100m
+p35
+sg7
+I11
+sg8
+F1.7780822886800001
+sa(dp36
+g2
+Vsq miles
+p37
+sg4
+F0.0
+sg5
+Vunknown 100 - 200m
+p38
+sg7
+I12
+sg8
+F0.0
+sa(dp39
+g2
+Vsq miles
+p40
+sg4
+F15.209704424
+sg5
+VHard 30 - 50m
+p41
+sg7
+I13
+sg8
+F0.0137921449116
+sa(dp42
+g2
+Vsq miles
+p43
+sg4
+F40.633100581900003
+sg5
+Vunknown 0 - 30m
+p44
+sg7
+I14
+sg8
+F0.0737181894413
+sa(dp45
+g2
+Vsq miles
+p46
+sg4
+F0.0
+sg5
+VSoft 100 - 200m
+p47
+sg7
+I15
+sg8
+F0.0
+sa.
