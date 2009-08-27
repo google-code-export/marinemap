@@ -456,6 +456,15 @@ class OrganizationScheme(models.Model):
     def __unicode__(self):
         return self.name
     
+    @property
+    def info(self):
+        subdict = {}
+        subdict['name'] = self.name
+        subdict['pk'] = self.pk
+        subdict['num_features'] = self.featuremapping_set.all().count()
+        subdict['feature_names'] = [f.name for f in self.featuremapping_set.all()]
+        return subdict
+    
     def transformed_results(self, geom, with_geometries=False, with_kml=False):
         new_results = []
         for fm in self.featuremapping_set.all():

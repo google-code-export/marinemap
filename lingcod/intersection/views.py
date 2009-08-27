@@ -110,11 +110,7 @@ def org_scheme_info(request):
     oscs = OrganizationScheme.objects.all()
     dict = {}
     for osc in oscs:
-        subdict = {}
-        subdict['name'] = osc.name
-        subdict['pk'] = osc.pk
-        subdict['num_features'] = osc.featuremapping_set.all().count()
-        subdict['feature_names'] = [f.name for f in osc.featuremapping_set.all()]
+        subdict = osc.info
         dict[str(osc.pk)] = subdict
     return HttpResponse(json_encode(dict), mimetype='text/json')
     
