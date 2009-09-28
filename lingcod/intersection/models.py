@@ -109,6 +109,11 @@ class Shapefile(models.Model):
     class Meta:
         abstract = True
         
+    def save(self):
+        super(Shapefile, self).save()
+        self.metadata = self.read_xml_metadata()
+        super(Shapefile, self).save()
+        
     def unzip_to_temp(self):
         # unzip to a temp directory and return the path to the .shp file
         valid, error = validate_zipped_shp(self.shapefile.path)
@@ -127,6 +132,17 @@ class Shapefile(models.Model):
                 if shp_part.endswith('.shp'):
                     shp_file = shp_part
         return shp_file
+    
+    def read_xml_metadata(self):
+        shpfile = self.unzip_to_temp()
+        xmlfile = shpfile + '.xml'
+        if os.path.exists(xmlfile):
+            f = open(xmlfile,'r')
+            xml_text = f.readlines()
+            f.close()
+        else:
+            xml_text = None
+        return xml_text
     
     def field_info(self):
         fpath = self.unzip_to_temp()
