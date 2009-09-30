@@ -109,10 +109,10 @@ class Shapefile(models.Model):
     class Meta:
         abstract = True
         
-    def save(self):
-        super(Shapefile, self).save()
-        self.metadata = self.read_xml_metadata()
-        super(Shapefile, self).save()
+#    def save(self, *args, **kwargs):
+#        super(Shapefile, self).save(*args, **kwargs)
+#        self.metadata = self.read_xml_metadata()
+#        super(Shapefile, self).save(*args, **kwargs)
         
     def unzip_to_temp(self):
         # unzip to a temp directory and return the path to the .shp file
@@ -478,10 +478,28 @@ class OrganizationScheme(models.Model):
         subdict['name'] = self.name
         subdict['pk'] = self.pk
         subdict['num_features'] = self.featuremapping_set.all().count()
-        subdict['feature_names'] = [f.name for f in self.featuremapping_set.all()]
+        feature_dict = {}
+        for f in self.featuremapping_set.all().order_by('sort'):
+            feature_dict[f.name] = f.units
+        subdict['feature_names_units'] = feature_dict
         return subdict
     
-    def transformed_results(self, geom, with_geometries=False, with_kml=False):
+    def validate(self):
+        for fm in self.featuremapping_set.all():
+            if not fm.validate(quiet=True):
+                return False
+        return True
+    
+    def transformed_results(self, geom_or_collection, with_geometries=False, with_kml=False):
+        if geom_or_collection.geom_type.lower().endswith('polygon'):
+            return self.transformed_results_single_geom(geom_or_collection, with_geometries=with_geometries, with_kml=with_kml)
+        elif geom_or_collection.geom_type.lower().endswith('collection'):
+            #do stuff for a collection
+            pass
+        else:
+            raise Exception('transformed results only available for Polygons and geometry collections.  something else was submitted.')
+    
+    def transformed_results_single_geom(self, geom, with_geometries=False, with_kml=False):
         new_results = []
         for fm in self.featuremapping_set.all():
             dict = {}
@@ -490,18 +508,19 @@ class OrganizationScheme(models.Model):
             feature_pks = [f.pk for f in fm.feature.all()]
             results = intersect_the_features(geom, feature_list=feature_pks, with_geometries=with_geometries or with_kml, with_kml=with_kml)
             intersection_total = 0.0
-            percent_sr_total = 0.0
+            sr_total = 0.0
             if with_geometries or with_kml:
                 f_gc = geos.fromstr('GEOMETRYCOLLECTION EMPTY')
             for pk in feature_pks:
                 for result in results:
                     if result['hab_id']==pk:
                         intersection_total += result['result']
-                        percent_sr_total += result['percent_of_total']
+                        #percent_sr_total += result['percent_of_total'] #wrong, can't add these percentages up have to determine total/total available
+                        sr_total += IntersectionFeature.objects.get(pk=pk).study_region_total
                         if with_geometries or with_kml:
                             f_gc = f_gc + result['geo_collection']
             dict['result'] = intersection_total
-            dict['percent_of_total'] = percent_sr_total
+            dict['percent_of_total'] = (intersection_total / sr_total) * 100
             dict['sort'] = fm.sort
             dict['units'] = fm.feature.all()[0].output_units
             if with_geometries:
@@ -519,15 +538,68 @@ class FeatureMapping(models.Model):
     name = models.CharField(max_length=255)
     sort = models.FloatField()    
     
+    class Meta:
+        ordering = ('sort','name')
+    
     def __unicode__(self):
         return self.name  
     
-    def validate(self):
+    @property
+    def study_region_total(self):
+        total = 0.0
+        for feature in self.feature.all():
+            total += feature.study_region_total
+        return total
+    
+    @property
+    def units(self):
+        if self.validate():
+            return self.feature.all()[0].output_units
+        
+    @property
+    def type(self):
+        if self.validate():
+            return self.feature.all()[0].feature_model.lower().replace('feature','')
+    
+    def validate(self, quiet=False):
+        if self.validate_feature_count(quiet) and self.validate_type(quiet) and self.validate_units(quiet):
+            return True
+        else:
+            return False
+    
+    def validate_feature_count(self, quiet=False):
+        if self.feature.all().count() < 1:
+            if quiet:
+                return False
+            else:
+                error = '%s in %s organization scheme has no features.' % (self.name, self.organization_scheme.name)
+                raise Exception(error)
+        else:
+            return True
+    
+    def validate_units(self, quiet=False):
         # Make sure that if there are multiple features to be combined that they all have the 
         # same units.
         units = self.feature.all()[0].output_units
         if False in [units==f.output_units for f in self.feature.all()]:
-            return False
+            if quiet:
+                return False
+            else:
+                error = '%s in %s organization scheme combines features with different units.' % (self.name, self.organization_scheme.name)
+                raise Exception(error)
+        else:
+            return True
+    
+    def validate_type(self, quiet=False):
+        # Make sure that if there are multiple features to be combined that they all have the 
+        # same type.
+        type = self.feature.all()[0].feature_model
+        if False in [type==f.feature_model for f in self.feature.all()]:
+            if quiet:
+                return False
+            else:
+                error = '%s in %s organization scheme combines different types of features.' % (self.name, self.organization_scheme.name)
+                raise Exception(error)
         else:
             return True
         
@@ -569,7 +641,7 @@ class PointFeature(CommonFeatureInfo):
     objects = models.GeoManager()
     
 class ResultCache(models.Model):
-    wkt_hash = models.IntegerField()
+    wkt_hash = models.CharField(max_length=255)
     intersection_feature = models.ForeignKey(IntersectionFeature)
     result = models.FloatField()
     units = models.CharField(max_length=255)
@@ -591,7 +663,7 @@ def intersect_the_features(geom, feature_list=None, with_geometries=False, with_
         dict['feature_name'] = int_feature.name
         dict['units'] = int_feature.output_units
         try: # get results from cache if they're there
-            rc = ResultCache.objects.get( wkt_hash=geom.wkt.__hash__(), intersection_feature=int_feature )
+            rc = ResultCache.objects.get( wkt_hash=str(geom.wkt.__hash__()), intersection_feature=int_feature )
             dict['result'] = rc.result
             dict['percent_of_total'] = rc.percent_of_total
             if with_geometries:
