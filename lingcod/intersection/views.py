@@ -106,7 +106,12 @@ def organized_intersection(request, org_scheme, format, geom_wkt):
     elif format=='csv':
         return build_csv_response(result, str(hash(geom)) )
 
-def org_scheme_info(request):
+def org_scheme_info(request, org_id):
+    osc = OrganizationScheme.objects.get(pk=org_id)
+    subdict = osc.info
+    return HttpResponse(json_encode(subdict), mimetype='text/json')
+
+def all_org_scheme_info(request):
     oscs = OrganizationScheme.objects.all()
     dict = {}
     for osc in oscs:

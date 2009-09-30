@@ -1,7 +1,7 @@
 from django import forms
 #from django.contrib.admin.helpers import AdminForm
 from lingcod.intersection.models import *
-from lingcod.intersection.admin import *
+from django.contrib.gis.admin import GeoModelAdmin, site as admin_site
 
         
 class SplitToSingleFeaturesForm(forms.Form):
@@ -12,7 +12,10 @@ class SplitToSingleFeaturesForm(forms.Form):
     mfshp_pk = forms.IntegerField(widget=forms.HiddenInput)
     shp_field = forms.ChoiceField(label='Shape file field to split on (# of distinct values in field)')
 
-admin_instance = TestPolygonAdmin(TestPolygon,admin.site)
+class PolyAdmin(GeoModelAdmin):
+    pass
+
+admin_instance = PolyAdmin(TestPolygon, admin_site)
 poly_field = TestPolygon._meta.get_field('geometry')
 admin_instance.default_lat = 33.5
 admin_instance.default_lon = -119

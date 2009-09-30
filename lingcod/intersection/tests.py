@@ -1,8 +1,32 @@
 from django.test import TestCase
-from lingcod.intersection.admin import *
+from django.conf import settings
+from django.core.files import File
+#from lingcod.intersection.admin import *
 from lingcod.intersection.models import *
 import os
 
+def upload_multifeature_poly(file_name='test_substrate.zip'):
+    # upload polygon shapefile
+    polygon_zip_path = os.path.join(os.path.dirname(__file__), 'test_data', file_name)
+    polygon_zip = open(polygon_zip_path)
+    mfsf = MultiFeatureShapefile(name="test polygon", shapefile=File(polygon_zip) )
+    mfsf.save()
+    polygon_zip.close()
+    
+def upload_multifeature_line(file_name='test_shoretype.zip'):
+    zip_path = os.path.join(os.path.dirname(__file__), 'test_data', file_name)
+    zip_file = open(zip_path)
+    mfsf = MultiFeatureShapefile(name="test linear", shapefile=File(zip_file) )
+    mfsf.save()
+    zip_file.close()
+    
+def upload_singlefeature_point(file_name='test_points.zip'):
+    zip_path = os.path.join(os.path.dirname(__file__), 'test_data', file_name)
+    zip_file = open(zip_path)
+    sfsf = SingleFeatureShapefile(name="test points", shapefile=File(zip_file) )
+    sfsf.save()
+    zip_file.close()
+        
 class UploadShapefilesTest(TestCase):
     fixtures = ['minimal_test_data.json']
     def setUp(self):
@@ -19,14 +43,7 @@ class UploadShapefilesTest(TestCase):
         SingleFeatureShapefile.objects.all().delete()
     
     def test_multishapefile_upload(self):
-        # upload polygon shapefile
-        polygon_zip_path = os.path.join(os.path.dirname(__file__), 'test_data', 'test_substrate.zip')
-        polygon_zip = open(polygon_zip_path)
-        form_data = { 'shapefile' : polygon_zip, 'name' : 'test polygon', 'shapefilefield_set-TOTAL_FORMS' : 0, 'shapefilefield_set-INITIAL_FORMS' : 0 }
-        response = self.client.post('/admin/intersection/multifeatureshapefile/add/', form_data)
-        polygon_zip.close()
-        #print response
-        self.assertRedirects(response, '/admin/intersection/multifeatureshapefile/')
+        upload_multifeature_poly()
         
         # Check to make sure the shapefile has been added
         mfs = MultiFeatureShapefile.objects.get(name='test polygon')
@@ -44,13 +61,7 @@ class UploadShapefilesTest(TestCase):
         
     def test_singleshapefile_upload(self):
         # upload point shapefile
-        point_zip_path = os.path.join(os.path.dirname(__file__), 'test_data', 'test_points.zip')
-        point_zip = open(point_zip_path)
-        form_data = { 'shapefile' : point_zip, 'name' : 'test points', 'shapefilefield_set-TOTAL_FORMS' : 0, 'shapefilefield_set-INITIAL_FORMS' : 0 }
-        response = self.client.post('/admin/intersection/singlefeatureshapefile/add/', form_data)
-        point_zip.close()
-        #print response
-        self.assertRedirects(response, '/admin/intersection/singlefeatureshapefile/')
+        upload_singlefeature_point()
         
         # Check to make sure the shapefile has been added
         sfs = SingleFeatureShapefile.objects.get(name='test points')
@@ -75,18 +86,10 @@ class SplitToSingleFeatureShapefilesTest(TestCase):
         else:
             print 'login failed!!!!!!!!!!!!!!!!'
         # upload polygon shapefile
-        polygon_zip = open( os.path.join(os.path.dirname(__file__), 'test_data', 'test_substrate.zip') )
-        form_data = { 'shapefile' : polygon_zip, 'name' : 'test polygon', 'shapefilefield_set-TOTAL_FORMS' : 0, 'shapefilefield_set-INITIAL_FORMS' : 0 }
-        response = self.client.post('/admin/intersection/multifeatureshapefile/add/', form_data)
-        polygon_zip.close()
-        mfs_poly = MultiFeatureShapefile.objects.get(name='test polygon')
+        upload_multifeature_poly()
         
         # upload a linear shapefile
-        linear_zip = open( os.path.join(os.path.dirname(__file__), 'test_data', 'test_shoretype.zip') )
-        form_data = { 'shapefile' : linear_zip, 'name' : 'test linear', 'shapefilefield_set-TOTAL_FORMS' : 0, 'shapefilefield_set-INITIAL_FORMS' : 0 }
-        response = self.client.post('/admin/intersection/multifeatureshapefile/add/', form_data)
-        linear_zip.close()
-        mfs_line = MultiFeatureShapefile.objects.get(name='test linear')
+        upload_multifeature_line()
         
         
     def tearDown(self):
@@ -96,11 +99,9 @@ class SplitToSingleFeatureShapefilesTest(TestCase):
         SingleFeatureShapefile.objects.all().delete()
         
     def test_poly_multi_split_to_single(self):
-        mfshp_pk = MultiFeatureShapefile.objects.get(name='test polygon').pk
-        form_data = { 'mfshp_pk': mfshp_pk, 'shp_field': 'sub_depth' }
-        action_url = '/admin/intersection/multifeatureshapefile/%i/splitonfield/' % mfshp_pk
-        response = self.client.post(action_url, form_data)
-        self.assertRedirects(response, '/admin/intersection/singlefeatureshapefile/')
+        sfshp = MultiFeatureShapefile.objects.get(name='test polygon')
+        sfshp.split_to_single_feature_shapefiles('sub_depth')
+        
         self.assertEquals( SingleFeatureShapefile.objects.all().count(), 11)
         for sfs in SingleFeatureShapefile.objects.filter(parent_shapefile=MultiFeatureShapefile.objects.get(name='test polygon')):
             # make sure the file is where it's supposed to be
@@ -111,11 +112,9 @@ class SplitToSingleFeatureShapefilesTest(TestCase):
             self.assertFalse( os.path.exists(file_path) )
             
     def test_linear_multi_split_to_single(self):
-        mfshp_pk = MultiFeatureShapefile.objects.get(name='test linear').pk
-        form_data = { 'mfshp_pk': mfshp_pk, 'shp_field': 'mapclass' }
-        action_url = '/admin/intersection/multifeatureshapefile/%i/splitonfield/' % mfshp_pk
-        response = self.client.post(action_url, form_data)
-        self.assertRedirects(response, '/admin/intersection/singlefeatureshapefile/')
+        sfshp = MultiFeatureShapefile.objects.get(name='test linear')
+        sfshp.split_to_single_feature_shapefiles('mapclass')
+        
         self.assertEquals( SingleFeatureShapefile.objects.all().count(), 2)
         for sfs in SingleFeatureShapefile.objects.all():
             # make sure the file is where it's supposed to be
@@ -134,18 +133,10 @@ class ImportShapefileFeaturesToDbTest(TestCase):
         else:
             print 'login failed!!!!!!!!!!!!!!!!'
         # upload polygon shapefile
-        polygon_zip = open( os.path.join(os.path.dirname(__file__), 'test_data', 'test_substrate.zip') )
-        form_data = { 'shapefile' : polygon_zip, 'name' : 'test polygon', 'shapefilefield_set-TOTAL_FORMS' : 0, 'shapefilefield_set-INITIAL_FORMS' : 0 }
-        response = self.client.post('/admin/intersection/multifeatureshapefile/add/', form_data)
-        polygon_zip.close()
-        mfs_poly = MultiFeatureShapefile.objects.get(name='test polygon')
+        upload_multifeature_poly()
         
         # upload a linear shapefile
-        linear_zip = open( os.path.join(os.path.dirname(__file__), 'test_data', 'test_shoretype.zip') )
-        form_data = { 'shapefile' : linear_zip, 'name' : 'test linear', 'shapefilefield_set-TOTAL_FORMS' : 0, 'shapefilefield_set-INITIAL_FORMS' : 0 }
-        response = self.client.post('/admin/intersection/multifeatureshapefile/add/', form_data)
-        linear_zip.close()
-        mfs_line = MultiFeatureShapefile.objects.get(name='test linear')
+        upload_multifeature_line()
         
         # split polygon multi features into single feature shapefiles
         mfshp_pk = MultiFeatureShapefile.objects.get(name='test polygon').pk
@@ -195,12 +186,12 @@ class ImportShapefileFeaturesToDbTest(TestCase):
             
 class RunIntersectionsWithTestPolygonTest(TestCase):
     fixtures = ['with_test_data_loaded.json']
-    def setUp(self):
+#    def setUp(self):
         # log in
-        if self.client.login(username='test',password='testing'):
-            print 'login worked'
-        else:
-            print 'login failed!!!!!!!!!!!!!!!!'
+#        if self.client.login(username='test',password='testing'):
+#            print 'login worked'
+#        else:
+#            print 'login failed!!!!!!!!!!!!!!!!'
             
     def test_default_intersection_with_test_polygon(self):
         import pickle
