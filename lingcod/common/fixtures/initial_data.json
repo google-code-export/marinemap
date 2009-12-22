@@ -5,6 +5,7 @@
     "username": "default_user", 
     "first_name": "", "last_name": "", "is_active": false, "is_superuser": false, "is_staff": false, 
     "last_login": "2009-10-16 12:38:49", "groups": [], "user_permissions": [], 
-    "password": "", "email": "support@marinemap.org", "date_joined": "2009-10-16 12:38:37"}
+    "password": "", "email": "support@marinemap.org", "date_joined": "2009-10-16 12:38:37",
+    "ha1": "83faef35c931ae622e8f16403ae6a8fa"}
 }
 ]

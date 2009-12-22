@@ -5,7 +5,7 @@ from django.contrib import admin
 admin.autodiscover()
 
 urlpatterns = patterns('',
-    (r'^$', 'lingcod.common.views.map', {'template_name': 'common/map-ext.html'}),
+    url(r'^$', 'lingcod.common.views.map', {'template_name': 'common/map-ext.html'}, name="map"),
     (r'^tests/', 'django.views.generic.simple.direct_to_template', {'template': 'common/tests.html', 'extra_context': {'api_key': settings.GOOGLE_API_KEY}}),
     (r'^layers/', include('lingcod.layers.urls')),
     (r'^studyregion/', include('lingcod.studyregion.urls')),
@@ -25,13 +25,14 @@ urlpatterns = patterns('',
     (r'^mpas/', include('lingcod.mpa.urls')),
     (r'^arrays/', include('lingcod.array.urls')),
     url(r'^login/$', 'django.contrib.auth.views.login', name='login'),
-    url(r'^logout/$', 'django.contrib.auth.views.logout', name='logout'),
+    url(r'^logout/$', 'lingcod.digest.views.logout', name='logout'),
     # Uncomment the admin/doc line below and add 'django.contrib.admindocs' 
     # to INSTALLED_APPS to enable admin documentation:
     # (r'^admin/doc/', include('django.contrib.admindocs.urls')),
 
     # Uncomment the next line to enable the admin:
     (r'^admin/', include(admin.site.urls)),
+    (r'^testKml/', 'simple.simple_app.views.testAuth'),
 )
 
 # Useful for serving files when using the django dev server

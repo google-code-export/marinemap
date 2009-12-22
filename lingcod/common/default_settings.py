@@ -44,6 +44,8 @@ COMPRESS_AUTO = True
 
 GOOGLE_ANALYTICS_MODEL = True
 
+REALM = 'marinemap.org'
+
 MIDDLEWARE_CLASSES = (
     # GZip speeds up downloads by compressing on the fly
     'django.middleware.gzip.GZipMiddleware',
@@ -73,6 +75,7 @@ INSTALLED_APPS = (
     'lingcod.wave',
     'lingcod.kmlapp',
     'lingcod.rest',
+    'lingcod.digest',
 )
 
 MEDIA_ROOT = os.path.dirname(os.path.abspath(__file__)) + '/../../media/'
