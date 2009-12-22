@@ -7,6 +7,7 @@ from lingcod.common import mimetypes
 from lingcod.common import utils 
 from lingcod.mpa.models import MpaDesignation
 from django.http import Http404
+from lingcod.digest.models import DigestSession
 
 class Http401(Exception): pass
 class Http403(Exception): pass
@@ -34,7 +35,7 @@ def get_user_mpa_data(user):
                 shapes[array_nameid]['mpas'].append(mpa)
             else:
                 shapes[array_nameid] = {'array': mpa.array, 'mpas':[mpa]}
-    for array in utils.get_array_class().objects.empty():
+    for array in utils.get_array_class().objects.empty().filter(user=user):
         array_nameid = "%s_%d" % (array.name, array.id)
         shapes[array_nameid] = {'array': array, 'mpas':[]}
     designations = MpaDesignation.objects.all()
@@ -117,23 +118,24 @@ def create_kmz(kml, zippath):
 
     return kmz
 
-from lingcod.common.basic_auth import logged_in_or_basicauth
-realm = 'marinemap'
+from lingcod.digest.decorators import digest_or_cookie_authentication
+from datetime import datetime
 
-@logged_in_or_basicauth(realm)
+@digest_or_cookie_authentication(hours=48, domain='/')
 def create_kml(request, input_username=None, input_array_id=None, input_mpa_id=None, links=False, kmz=False):
     """
     Returns a KML/KMZ containing MPAs (organized into folders by array)
     """
     user = request.user
     if user.is_anonymous() or not user.is_authenticated():
-        return HttpResponse('You must be logged in', status=401)
+        session = DigestSession(created=datetime.now())
+        session.save()
+        return session.generate_challenge(domain='/')
     elif input_username and user.username != input_username:
         # return HttpResponse('Access denied', status=401)
-        response = HttpResponse()
-        response.status_code = 401
-        response['WWW-Authenticate'] = 'Basic realm="%s"' % realm
-        return response
+        session = DigestSession(created=datetime.now())
+        session.save()
+        return session.generate_challenge(domain="/")
 
     if input_username:
         shapes, designations = get_user_mpa_data(user)
