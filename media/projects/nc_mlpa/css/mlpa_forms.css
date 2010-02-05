@@ -47,3 +47,7 @@ p.designation_allowed_uses_note {
     margin-top:5px !important;
     font-style:italic;
 }
+
+a#news, a#help, a#login {
+    display:none;
+}
