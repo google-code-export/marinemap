@@ -101,6 +101,7 @@ INSTALLED_APPS = (
     'lingcod.async',
     'djcelery', 
     'ghettoq', 
+    'lingcod.sitemap',
 )
 
 EXCLUDE_FROM_TESTS = [
