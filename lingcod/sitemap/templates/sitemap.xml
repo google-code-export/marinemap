@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+   <url>
+      <loc>http://marinemap.org/</loc>
+      <lastmod>2010-11-22</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>1.0</priority>
+   </url>
+   <url>
+      <loc>http://marinemap.org/decision-support-tool</loc>
+      <changefreq>monthly</changefreq>
+   </url>
+   <url>
+      <loc>http://marinemap.org/services</loc>
+      <changefreq>monthly</changefreq>
+   </url>
+   <url>
+      <loc>http://marinemap.org/news</loc>
+      <changefreq>monthly</changefreq>
+   </url>
+   <url>
+      <loc>http://marinemap.org/faq</loc>
+      <changefreq>monthly</changefreq>
+   </url>
+   <url>
+      <loc>http://blog.marinemap.org/</loc>
+      <changefreq>weekly</changefreq>
+   </url>
+   <url>
+      <loc>http://marinemap.org/decision-support-tool/tour</loc>
+      <changefreq>monthly</changefreq>
+   </url>
+   <url>
+      <loc>http://marinemap.org/decision-support-tool/project-launch</loc>
+      <changefreq>monthly</changefreq>
+   </url>
+   <url>
+      <loc>http://marinemap.org/marinemap</loc>
+      <changefreq>monthly</changefreq>
+   </url>
+</urlset>
+
