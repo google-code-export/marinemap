@@ -1,8 +1,10 @@
 #!/usr/bin/python
 
-import windmill
-import functest
-from windmill.authoring import WindmillTestClient
+#import windmill
+#import functest
+#from windmill.authoring import WindmillTestClient
+
+# Designed for OSX / Safari
 
 def test_recordingSuite0():
     client = WindmillTestClient(__name__)
