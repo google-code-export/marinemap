@@ -1,10 +1,8 @@
-#!/usr/bin/python
-
-#import windmill
-#import functest
-#from windmill.authoring import WindmillTestClient
-
 # Designed for OSX / Safari
+import time
+time.sleep(5)
+
+from windmill.authoring import WindmillTestClient
 
 def test_recordingSuite0():
     client = WindmillTestClient(__name__)

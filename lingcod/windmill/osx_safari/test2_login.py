@@ -1,3 +1,8 @@
+# Designed for OSX / Safari
+
+import time
+time.sleep(5)
+
 from windmill.authoring import WindmillTestClient
 
 def test_recordingSuite0():
