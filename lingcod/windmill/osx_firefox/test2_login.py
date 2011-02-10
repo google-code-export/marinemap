@@ -1,4 +1,5 @@
-# Designed for OSX / Safari
+
+# Designed for OSX / Firefox
 
 import time
 time.sleep(5)
