@@ -1,0 +1,37 @@
+{% load absurl absolute_media_url %}<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:mm="http://marinemap.org" xmlns:gx="http://www.google.com/kml/ext/2.2">
+<Document>
+  <name>{% block docname %}MarineMap Features and Collections{% endblock %}</name>
+  <open>1</open>
+  <visibility>1</visibility>
+
+  {% block styledefs %}
+   {% for style in styles %}
+      {{style|safe}}
+   {% endfor %}
+  {% endblock %}
+
+{% block folders_and_placemarks %}
+
+  {% for collection in collections %}
+    {% if use_network_links and not shareuser and not sharegroup %}
+      <NetworkLink id="{{collection.uid}}">
+        <name>{{collection.name}}</name>
+        <visibility>1</visibility>
+        <open>0</open>
+        <Link>
+          <href>{% absurl kmlapp-feature-links-kmz input_uid=collection.uid,session_key=session_key %}</href>
+        </Link>
+      </NetworkLink>
+    {% else %}
+      {{ collection.kml|safe }}
+    {% endif %}
+  {% endfor %}
+
+  {% for feature in features %}
+  {{ feature.kml|safe }}
+  {% endfor %}
+{% endblock %}
+
+</Document>
+</kml>
