@@ -1,0 +1,234 @@
+{% extends "common/base.html" %}
+
+{% block head %}
+    <script type="text/javascript">
+
+        google.load("earth", "1.x");
+        google.load('maps', '3', {"other_params":"sensor=false"});
+
+        var ge = null;
+        var gex = null;
+        
+        var options = {
+            media_url: "{{MEDIA_URL}}",
+            news_url: '{% url news-main %}',
+            about_url: '{% url news-about %}'
+        };
+        
+        // Used to identify whether the about or news panel should be shown
+        {% if show_panel %}
+            options.show_panel = '{{ show_panel }}';
+        {% endif %}
+
+        {% block layersConfig %}
+        // setup which kml files are shown in the data layers panel
+        lingcod.addLayer('{% url studyregion-kml %}', {setExtent: true});
+        lingcod.addLayer('{% url public-data-layers %}');            
+        {% endblock layersConfig %}
+
+        {% block sharedshapes %}
+            {% if user.is_authenticated %}
+                options.sharedshapes = ["{% url kmlapp-sharedlinks-kmz input_username=user.username session_key=session_key %}"];
+                options.allow_copy = true;
+            {% else %}
+                options.sharedshapes = ["{% url kmlapp-publicshared-kmz 0 %}"];
+                options.allow_copy = false;
+            {% endif %}
+        {% endblock sharedshapes %}
+
+        {% block myshapes %}
+            {% if user.is_authenticated %}
+                options.myshapes = [{url: "{% url kmlapp-userlinks-kmz input_username=user.username session_key=session_key %}"}];
+            {% endif %}
+        {% endblock myshapes %}
+                                        
+        {% block addToOptions %}{% endblock addToOptions %}
+        
+        $(document).ready(function(){
+            lingcod.init(options);
+        });
+    </script>
+{% endblock %}
+
+{% block body %}
+    <div id="meta-navigation">
+        <ul>
+            {% block metanavigation %}
+            {% if user.is_authenticated %}
+            <li>{{user.username}} | </li>
+            {% endif %}
+            <li><a href="#" id="news">news</a> | </li>
+            <li><a href="#" id="about">about marinemap</a> | </li>
+            {% block meta_navigation_list_insert %}{% endblock %}
+            <li><a href="{% url help-main %}" target="_blank" id="help">help</a> | </li>
+            {% if user.is_authenticated %}
+            <li><a href="{% url user_profile-form user.username %}">my profile</a> | </li>
+            <li><a href="{% url user_signout %}">sign out</a></li>
+            {% else %}
+            <li><a href="{% url registration_register %}">register</a> | </li>
+            <li><a href="{% url user_signin %}">sign in</a></li>
+            {% endif %}                
+            {% endblock metanavigation %}
+            {% block meta_navigation_list_append %}{% endblock %}
+        </ul>
+        <br />
+    </div>
+    <ul class="menu_items" id="header_buttons">
+        <li class="divider"><img src="{{MEDIA_URL}}/common/images/header_divider.gif" height="32" width="2" /></li>
+        <li id="layers_menu" class="item">
+            <span>
+                <a title="Data Layers" href="#DataLayers"><img src="{{MEDIA_URL}}/common/images/transparent.gif" width="44" height="48" /></a>
+            </span>
+        </li>
+        <li class="divider"><img src="{{MEDIA_URL}}/common/images/header_divider.gif" height="32" width="2" /></li>
+        <li id="tools_menu" class="item autosize">
+            <span>
+                <a title="Tools" href="#tools"><img src="{{MEDIA_URL}}/common/images/transparent.gif" width="44" height="48" /></a>
+            </span>
+        </li>
+        <li class="divider"><img src="{{MEDIA_URL}}/common/images/header_divider.gif" height="32" width="2" /></li>
+    </ul>
+    <div id="sidebar-toggler">
+        &nbsp;
+    </div>
+    <a id="show-sidebar" href="#">show sidebar</a>
+    <div id="sidebar">
+        <div id="sidebar-mask"><span class="loadingMsg"></span></div>
+        <ul>
+            {% block tabs %}
+            {% if user.is_authenticated %}
+            <li><a href="#MyShapes"><span>My Shapes</span></a></li>                
+            {% endif %}
+            <li><a href="#SharedShapes"><span>{% if user.is_authenticated %}Shared With Me{% else %}MPA Proposals{% endif %}</span></a></li>
+            {% endblock tabs %}
+        </ul>
+        {% block tabscontents %}
+        {% if user.is_authenticated %}
+        <div id="MyShapes">
+            <div style="font-size:1em;" id="myshapestree"></div>
+        </div>            
+        {% endif %}
+        <div id="SharedShapes">
+            <div style="font-size:1em;" id="sharedshapestree"></div>
+        </div>            
+        {% endblock tabscontents %}
+    </div>
+    <div id="map_container">
+        <div id="map" class="kmlTreeReset"></div>
+    </div>
+    <div id="tools">
+        <h1>Tools</h1>
+        <form id="flyToLocation" method="GET">
+            <input type="text" name="flyto_location" value="">
+            <a id="flytogo" href="#" class="button" onclick="this.blur(); return false;"><span>Fly Here</span></a>
+            <a id="flytoclear" href="#" class="button red disabled" onclick="this.blur(); return false;"><span>Clear</span></a>
+            <input type="submit" style="display:none;" />
+            <br style="clear:both;" />
+        </form>
+        <hr />
+        <div id="measurement_tools" class="tool">
+            <a id="measure_distance" href="#" class="button" onclick="this.blur(); return false;"><span><img src="{{MEDIA_URL}}common/images/ruler.png">Measure Distance</span></a>
+            <a id="measure_area" href="#" class="button" onclick="this.blur(); return false;"><span><img src="{{MEDIA_URL}}common/images/ruler_square.png">Measure Area</span></a>
+            <a id="measure_clear" href="#" class="button red disabled" onclick="this.blur(); return false;"><span>Clear</span></a>
+            <p style="clear:both;">
+                Choose to measure distance or area and then draw a shape on the map. Double-click when finished drawing.
+            </p>
+            <div id="measureAmountHolder">
+                <span id="measureAmount"></span>
+                <select id="measure_units">
+                    <option value="metric">metric</option>
+                    <option value="english">english</option>
+                    <option value="nautical">nautical</option>                            
+                </select>
+            </div>
+        </div>
+        <hr />
+        <div id="earthOptions">
+            <h3>Display Options</h3>
+            <p>Toggle the various options below and your choices will be remembered the next time you use the tool.</p>
+            <ul>
+                <li id="overview"><span class="toggler"><img width="16" height="16" src="{{MEDIA_URL}}common/images/transparent.gif" /></span>Overview Map</li>
+                <li id="scale"><span class="toggler"><img width="16" height="16" src="{{MEDIA_URL}}common/images/transparent.gif" /></span>Scale Legend</li>
+                <li class="visible" id="nav"><span class="toggler"><img width="16" height="16" src="{{MEDIA_URL}}common/images/transparent.gif" /></span>Navigation Controls</li>
+                <li id="terrain"><span class="toggler"><img width="16" height="16" src="{{MEDIA_URL}}common/images/transparent.gif" /></span>3d Terrain and Ocean Surface</li>
+                <li class="visible" id="atm"><span class="toggler"><img width="16" height="16" src="{{MEDIA_URL}}common/images/transparent.gif" /></span>Atmosphere</li>
+            </ul>
+        </div>
+    </div>
+    <div id="DataLayers">
+        <h1>{% block dataLayersTitle %}Data Layers{% endblock dataLayersTitle %}</h1>
+        <div id="datalayerstree"></div>
+    </div>
+    <div style="display:none;" id="panel-holder"></div>
+    <div id="geopanel">
+
+        {% block shapeDefinitionPanelManipulators %}
+        <div class="manipulators" style="display:none;">
+            <h3>Select geometry processing steps</h3>
+            {#  These divs get populated in media/manipulators/js/manipulators.js #}
+            <div class="requiredManipulators"> </div>
+            <div class="optionalManipulators"> </div>
+            <hr />
+        </div>
+        {% endblock shapeDefinitionPanelManipulators %}
+
+
+        {% block shapeDefinitionPanel %}
+        {#  This text is defined within a block here so that individual #}
+        {#  projects can extend this block to modify the text #}
+        <div class="panel">
+            <div class="new" style="display:none;">
+                {% block shapeDefinitionPanelNewShape %}
+                <p>
+                    To begin defining a shape, press the button below and 
+                    click on the map where you would like to place a vertex. 
+                    When finished, double click the last vertex of your shape.
+                </p>                    
+                {% endblock shapeDefinitionPanelNewShape %}
+                <a href="#" class="draw_shape button" onclick="this.blur(); return false;"><span><img src="{{MEDIA_URL}}common/images/silk/pencil.png">Draw Shape</span></a>                
+                <a href="#" class="load_shape button" onclick="this.blur(); return false;" style="display:none;"><span><img src="{{MEDIA_URL}}common/images/upload_icon.gif">Load Shape</span></a>                
+                <div style="display:none" id="load_shape_div"><p style="padding:10px;">CONTENT FROM SERVER</p></div>
+            </div>
+            <div class="edit" style="display:none;">
+                {% block shapeDefinitionPanelEditShape %}
+                <p>
+                    To edit this shape, press the button below and drag its 
+                    handles.
+                </p>                    
+                {% endblock shapeDefinitionPanelEditShape %}
+                <a href="#" class="edit_shape button" onclick="this.blur(); return false;"><span><img src="{{MEDIA_URL}}common/images/silk/shape_handles.png">Edit Shape</span></a>                
+            </div>
+            <div class="editing" style="display:none;">
+                {% block editingShape %}
+                <p>
+                    Drag the handles of the shape to edit. You can add 
+                    vertices to the shape by dragging the handle shown at the
+                    midpoint of a line. <strong>To remove a vertex, double-click on 
+                    it.</strong>
+                    <br />
+                    When you are done, click on the button below.
+                </p>
+                <a href="#" class="done_editing button" onclick="this.blur(); return false;"><span>Done Editing</span></a>                
+                {% endblock editingShape %}
+            </div>
+            <div class="manipulated" style="display:none;">
+                {% block shapeDefinitionPanelBeforeManipulatorContent %}                    
+                {% endblock shapeDefinitionPanelBeforeManipulatorContent %}
+                <p>
+                    CONTENT FROM SERVER
+                </p>
+                {% block shapeDefinitionPanelAfterManipulatorContent %}                    
+                {% endblock shapeDefinitionPanelAfterManipulatorContent %}
+                <a href="#" class="edit_shape button" onclick="this.blur(); return false;"><span><img src="{{MEDIA_URL}}common/images/silk/shape_handles.png">Edit Shape</span></a>                
+            </div>
+            <div id="manipulators_server_error" style="display:none;">
+                <h3>Server Error</h3>
+                <p>There was a server error processing your shape. You can try editing this shape again by pressing the "Edit Shape" button, or the "Cancel" button below. The problem may be specific to the region you are drawing within.</p>
+                <p>Please contact an administrator at help@marinemap.org if the problem persists.</p>
+            </div>
+        </div>
+        {% endblock shapeDefinitionPanel %}
+    </div>
+{% endblock %}
+
+
