@@ -1,0 +1,2 @@
+{% load appname %}
+Welcome to {% appname %}. Action needed to activate your account.
