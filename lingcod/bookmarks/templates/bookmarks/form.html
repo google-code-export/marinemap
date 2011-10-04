@@ -1,0 +1,124 @@
+{% extends "common/panel.html" %}
+{% block title %}{{title}}{% endblock %}
+{% block panel %}
+<script type="text/javascript" charset="utf-8">
+    lingcod.onShow(function(){
+        lingcod.setupForm($('#featureform'));
+
+        function capture() {
+            var camera = ge.getView().copyAsCamera(ge.ALTITUDE_RELATIVE_TO_GROUND);
+            $('#item_latitude').text("latitude : " + camera.getLatitude());
+            $('#id_latitude').val(camera.getLatitude());
+
+            $('#item_longitude').text("longitude : " + camera.getLongitude());
+            $('#id_longitude').val(camera.getLongitude());
+
+            $('#item_altitude').text("altitude : " + camera.getAltitude());
+            $('#id_altitude').val(camera.getAltitude());
+
+            $('#item_altitudeMode').text("altitudeMode : " + camera.getAltitudeMode());
+            $('#id_altitudeMode').val(camera.getAltitudeMode());
+
+            $('#item_roll').text("roll : " + camera.getRoll());
+            $('#id_roll').val(camera.getRoll());
+
+            $('#item_tilt').text("tilt : " + camera.getTilt());
+            $('#id_tilt').val(camera.getTilt());
+
+            $('#item_heading').text("heading : " + camera.getHeading());
+            $('#id_heading').val(camera.getHeading());
+
+            // Find the public layer tree
+            var tree = null;
+            for(var i=0; i<lingcod.layers.length; i++){
+                if(lingcod.layers[i].url.indexOf('public') != -1) {
+                    tree = lingcod.layers[i].tree;
+                    break;
+                }
+            }
+            if (tree) { 
+                var publicstate = JSON.stringify(tree.getState());
+            } else {
+                var publicstate = "{}";
+            }
+            $('#item_publicstate').text("publicstate : " + publicstate);
+            $('#id_publicstate').val(publicstate);
+        }
+        
+        $('#camera_capture').click(capture);
+        // Grab the current view if its a "Create New" situation
+        if (!$('#id_latitude').val()) {
+            capture();
+        }
+
+        var ftog = function() {
+            $('#fshow_toggle_details').toggle();
+            $('#fhide_toggle_details').toggle();
+            $('#fshow_camera_results').toggle();
+        };
+        $('#fshow_toggle_details').click(ftog);
+        $('#fhide_toggle_details').click(ftog);
+    });
+</script>
+
+<style type="text/css">
+    .marinemap-panel form ul li { padding-left: 4px; }
+</style>
+<h1>{{ title }}</h1>
+<form id="featureform" action="{{action}}" method="post"> 
+
+
+        {% for field in form.visible_fields %}
+        <div class="field{% if field.field.required %} required{% endif %}">
+            {{ field.label_tag }}
+            {{ field.errors }}
+            {% if field.help_text %}
+            <p class="help_text">
+                {{ field.help_text|safe }}            
+            </p>            
+            {% endif %}
+            {{ field }}            
+        </div>
+        {% endfor %}
+
+        {% for hidden in form.hidden_fields %}
+          {% if hidden.errors %}
+            {{hidden.name}} : {{hidden.errors}} 
+          {% endif %}
+          {{hidden}}
+        {% endfor %}
+
+        <label for="id_camera">Bookmark settings</label>
+        <a href="#" class="button" id="camera_capture"  onclick="this.blur(); return false;"><span>Recapture View</span></a>
+        <br/>
+        <div> The bookmark is set to capture the public layers and camera angle at the time when you clicked <em>Create New</em>.
+        If you have changed the view and wish to reflect that in the bookmark, click <em>Recapture View</em> above. </div>
+
+        <div style="padding:15px">
+        <a href="#" id="fshow_toggle_details" style="color:grey; font-family: monospace">show details</a>
+        <a href="#" id="fhide_toggle_details" style="display:none; color:grey; font-family: monospace">hide details</a>
+        <div id="fshow_camera_results" style="display:none; color:grey; font-family: monospace">
+            <ul>
+            {% for hidden in form.hidden_fields %}
+                {% if hidden.name != "user" %}
+                <li id="item_{{hidden.name}}"> {% if hidden.value %} {{ hidden.name }} : {{ hidden.value }} {% endif %}</li>
+                {% endif %}
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+        </div>
+
+<p><input type="submit" value="submit"></p>
+</form>
+
+
+<div>
+    <a href="#" class="cancel_button button red" onclick="this.blur(); return false;"><span>Cancel</span></a>
+    <a href="#" class="submit_button button" onclick="this.blur(); return false;"><span>Submit</span></a>
+</div>
+<br/>
+<br/>
+
+{% endblock %}
